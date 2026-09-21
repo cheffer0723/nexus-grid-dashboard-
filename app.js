@@ -1,14 +1,14 @@
-const DEFAULT_MODE = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") ? "local" : "remoteControl";
+const DEFAULT_MODE = "demo";
 const MODE_STORAGE_KEY = "NEXUS_DASHBOARD_MODE";
 const BUILD_COMMIT = document.currentScript?.dataset.commit || localStorage.getItem("NEXUS_BUILD_SHA") || "unknown";
 const MODE_CONFIG = {
-  remote: { label: "Remote, read-only (Railway)", apiBase: "https://critical-mass-lab-production.up.railway.app" },
-  remoteControl: { label: "Remote control", apiBase: localStorage.getItem("NEXUS_REMOTE_CONTROL_BASE") || "http://165.227.84.11:8896" },
-  local: { label: "Local, control enabled", apiBase: "http://127.0.0.1:8080" },
+  demo: { label: "Demo sample", apiBase: "" },
+  remote: { label: "Your API, read-only", apiBase: "" },
+  remoteControl: { label: "Your API, with control", apiBase: "" },
+  local: { label: "This computer, control on", apiBase: "http://127.0.0.1:8080" },
 };
 let DASHBOARD_MODE = localStorage.getItem(MODE_STORAGE_KEY) || DEFAULT_MODE;
 if (!MODE_CONFIG[DASHBOARD_MODE]) DASHBOARD_MODE = DEFAULT_MODE;
-if (DEFAULT_MODE === "remoteControl" && DASHBOARD_MODE === "remote") DASHBOARD_MODE = "remoteControl";
 let API_BASE = MODE_CONFIG[DASHBOARD_MODE].apiBase;
 const REFRESH_MS = 45000;
 const PROCESS_REFRESH_MS = 5000;
@@ -48,21 +48,9 @@ function syncApiBaseUi() {
   if (build) build.textContent = `Build: ${localStorage.getItem("NEXUS_BUILD_SHA") || BUILD_COMMIT}`;
 }
 
-async function syncBuildCommit() {
+function syncBuildCommit() {
   const build = document.getElementById("frontendCommitText");
-  if (build) build.textContent = `Build: loading...`;
-  try {
-    const res = await fetch("https://api.github.com/repos/cheffer0723/nexus-grid-static/commits/main", { cache: "no-store", headers: { Accept: "application/vnd.github+json" } });
-    if (!res.ok) return;
-    const data = await res.json();
-    const sha = String(data?.sha || "").slice(0, 7);
-    if (sha) {
-      localStorage.setItem("NEXUS_BUILD_SHA", sha);
-      if (build) build.textContent = `Build: ${sha}`;
-    }
-  } catch {
-    if (build) build.textContent = `Build: ${localStorage.getItem("NEXUS_BUILD_SHA") || BUILD_COMMIT}`;
-  }
+  if (build) build.textContent = `Build: ${BUILD_COMMIT}`;
 }
 
 function updateApiBase(nextBase) {
@@ -83,14 +71,15 @@ function updateControlToken(nextToken) {
 }
 
 function setMode(nextMode) {
-  const normalized = nextMode === "local" || nextMode === "remoteControl" ? nextMode : "remote";
-  DASHBOARD_MODE = normalized;
-  API_BASE = MODE_CONFIG[DASHBOARD_MODE].apiBase || localStorage.getItem(apiBaseKeyForMode(DASHBOARD_MODE)) || "";
+  DASHBOARD_MODE = MODE_CONFIG[nextMode] ? nextMode : DEFAULT_MODE;
+  API_BASE = localStorage.getItem(apiBaseKeyForMode(DASHBOARD_MODE)) || MODE_CONFIG[DASHBOARD_MODE].apiBase || "";
   localStorage.setItem(MODE_STORAGE_KEY, DASHBOARD_MODE);
   syncApiBaseUi();
 }
 
 function dashboardEndpoint() {
+  if (DASHBOARD_MODE === "demo") return "";
+  if (!API_BASE) return "";
   if (DASHBOARD_MODE === "remote") return `${API_BASE}/state`;
   if (DASHBOARD_MODE === "remoteControl") return `${API_BASE}/api/remote/state`;
   return `${API_BASE}/api/nexus/dashboard`;
@@ -187,7 +176,7 @@ function initBackendControls() {
     });
   }
   syncApiBaseUi();
-  syncBuildCommit().catch(() => {});
+  syncBuildCommit();
 }
 
 const fmt = {
@@ -323,8 +312,8 @@ function commandText(value) {
 }
 
 async function processAction(service, action) {
-  if (DASHBOARD_MODE === "remote") {
-    setText("lastErrorText", "Process control is disabled in read-only remote mode.");
+  if (DASHBOARD_MODE === "remote" || DASHBOARD_MODE === "demo") {
+    setText("lastErrorText", DASHBOARD_MODE === "demo" ? "Process control is off in demo mode." : "Process control is off in read-only mode.");
     return;
   }
   const headers = { "Content-Type": "application/json" };
@@ -351,8 +340,15 @@ async function processAction(service, action) {
 function renderProcessCards(payload) {
   const services = payload.services && payload.services.length ? payload.services : DEFAULT_PROCESS_SERVICES;
   const controlMode = DASHBOARD_MODE === "local" || DASHBOARD_MODE === "remoteControl";
-  const remoteControlMode = DASHBOARD_MODE === "remoteControl";
-  setText("processCountStamp", controlMode ? `${services.length} managed services` : `Remote mode, process control disabled`);
+  const lockedNote = controlMode
+    ? ""
+    : DASHBOARD_MODE === "demo"
+      ? "<div class='empty-state'>Demo mode shows the layout with sample data. Choose an API mode and paste your engine address to control a real process.</div>"
+      : "<div class='empty-state'>This mode is read-only. Switch to a control mode on the machine that runs the engine.</div>";
+  setText(
+    "processCountStamp",
+    controlMode ? `${services.length} managed services` : DASHBOARD_MODE === "demo" ? "Demo mode" : "Read-only mode",
+  );
 
   const container = document.getElementById("processCards");
   if (!container) return;
@@ -385,7 +381,7 @@ function renderProcessCards(payload) {
             <div class="process-actions">
               <button type="button" onclick="processAction('${escapeHtml(service.key)}','start')" ${startDisabled ? "disabled" : ""}>Start</button>
               <button type="button" onclick="processAction('${escapeHtml(service.key)}','stop')" ${stopDisabled ? "disabled" : ""}>Stop</button>
-              <button type="button" onclick="processAction('${escapeHtml(service.key)}','restart')">Restart</button>
+              <button type="button" onclick="processAction('${escapeHtml(service.key)}','restart')" ${controlMode ? "" : "disabled"}>Restart</button>
             </div>
           </div>
 
@@ -402,7 +398,7 @@ function renderProcessCards(payload) {
           <div class="process-command"><span class="kv-label">Exact script path</span><div class="mono">${escapeHtml(scriptPath)}</div></div>
           <div class="process-command"><span class="kv-label">Command executed inside runner</span><div class="mono">${escapeHtml(commandDisplay)}</div></div>
           <div class="process-paths"><span class="kv-label">Monitored live files</span>${monitoredPaths || "<div class='empty-state'>No monitored files configured.</div>"}</div>
-          ${controlMode ? "" : "<div class='empty-state'>Remote mode is read-only. Switch to local mode on a desktop on the host machine to use process controls.</div>"}
+          ${lockedNote}
           <div class="process-tail"><span class="kv-label">Recent output</span><pre>${escapeHtml(combinedTail || "No output yet.")}</pre></div>
         </div>
       `;
@@ -411,6 +407,27 @@ function renderProcessCards(payload) {
 }
 
 async function loadProcesses() {
+  if (DASHBOARD_MODE === "demo") {
+    renderProcessCards({ services: DEFAULT_PROCESS_SERVICES.map((service) => ({
+      ...service,
+      status: "stopped",
+      pid: null,
+      start_time_utc: null,
+      stop_time_utc: null,
+      exit_code: null,
+      last_error: null,
+      last_output_at_utc: null,
+      last_file_update_at_utc: null,
+      last_heartbeat_at_utc: null,
+      last_stdout_tail: [],
+      last_stderr_tail: [],
+      script_path: null,
+      command_display: null,
+      launch_command: null,
+      monitored_paths: [],
+    })) });
+    return { ok: true, mode: "demo" };
+  }
   if (DASHBOARD_MODE === "remoteControl") {
     const res = await fetch(`${API_BASE}/api/remote/state`, {
       cache: "no-store",
@@ -706,7 +723,163 @@ function renderDashboard(payload) {
   );
 }
 
+function pointsGap(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  const points = Math.round(n * 100);
+  return `${points > 0 ? "+" : ""}${points} pts`;
+}
+
+function renderScorecard(data) {
+  const engines = [...(data.engines || [])].sort((left, right) => (right.excess_return ?? -Infinity) - (left.excess_return ?? -Infinity));
+  const assets = data.assets || [];
+  const bestGap = engines[0];
+  const bestHit = [...engines].sort((left, right) => (right.hit_rate_active ?? -1) - (left.hit_rate_active ?? -1))[0];
+  const coinsAt60 = engines.reduce((sum, engine) => sum + (engine.assets_hit_rate_at_least_60 || 0), 0);
+  const upDay = engines[0]?.market_up_day_rate;
+
+  setText("scorecardStamp", data.eval_start && data.eval_end ? `${data.eval_start} → ${data.eval_end}` : "—");
+  const note = document.getElementById("scorecardNote");
+  if (note) {
+    const coins = (data.universe || []).map((symbol) => symbol.replace("-USD", "")).join(", ");
+    note.textContent = coins
+      ? `Same ${assets.length || data.universe.length} coins, same dates, same 0.40% fee. ${coins}.`
+      : "Same coins, same dates, same fee.";
+  }
+
+  const leads = document.getElementById("scorecardLeads");
+  if (leads) {
+    const cards = [
+      {
+        label: "Closest to buy and hold",
+        value: bestGap ? bestGap.name : "—",
+        detail: bestGap ? `${fmt.pct(bestGap.total_return, 0)} return, ${pointsGap(bestGap.excess_return)} versus buy and hold` : "—",
+      },
+      {
+        label: "Highest hit rate",
+        value: bestHit ? `${bestHit.name} ${fmt.pct(bestHit.hit_rate_active, 1)}` : "—",
+        detail: bestHit ? `${bestHit.assets_hit_rate_at_least_60 || 0} coins at 60% or better` : "—",
+      },
+      {
+        label: "Coins up on a random day",
+        value: fmt.pct(upDay, 1),
+        detail: "Share of days these coins closed higher. A useful hit rate has to beat this.",
+      },
+      {
+        label: "Coins at 60% or better",
+        value: String(coinsAt60),
+        detail: "Counted per rule. One coin can show up under more than one rule.",
+      },
+    ];
+    leads.innerHTML = cards
+      .map(
+        (card) => `
+          <div class="kv-item">
+            <span class="kv-label">${escapeHtml(card.label)}</span>
+            <span class="kv-value">${escapeHtml(card.value)}</span>
+            <span class="score-detail">${escapeHtml(card.detail)}</span>
+          </div>
+        `,
+      )
+      .join("");
+  }
+
+  const caveat = document.getElementById("scorecardCaveat");
+  if (caveat) {
+    const cerberus = engines.find((engine) => engine.id === "cerberus");
+    const sisyphus = engines.find((engine) => engine.id === "sisyphus");
+    const sentences = [
+      cerberus
+        ? `Cerberus averaged ${fmt.pct(cerberus.hit_rate_active, 1)} and was at least 60% on ${cerberus.assets_hit_rate_at_least_60 || 0} of these coins.`
+        : null,
+      sisyphus
+        ? `Sisyphus averaged ${fmt.pct(sisyphus.hit_rate_active, 1)} and cleared 60% on ${sisyphus.assets_hit_rate_at_least_60 || 0} coins, while staying in the market about ${fmt.pct(sisyphus.pct_in_market, 0)} of days.`
+        : null,
+      "A hit is an in-market day where price moved the same way as the position. The gap column is percentage points versus buy and hold, after the 0.40% fee on position changes.",
+      "These are the archived fixed rules, rerun as published. Research replay only. Rebuild with python3 scripts/build_regime_scorecard.py.",
+    ].filter(Boolean);
+    caveat.textContent = sentences.join(" ");
+  }
+
+  renderTable(
+    document.getElementById("scorecardEngineWrap"),
+    [
+      { label: "Rule", key: "name", value: (row) => `<strong>${escapeHtml(row.name)}</strong>` },
+      { label: "Hit rate", key: "hit_rate_active", value: (row) => `<span class="badge ${row.hit_rate_active >= 0.6 ? "ok" : "neutral"}">${fmt.pct(row.hit_rate_active, 1)}</span>` },
+      { label: "Coins ≥ 60%", key: "assets_hit_rate_at_least_60", value: (row) => fmt.int(row.assets_hit_rate_at_least_60) },
+      { label: "Return", key: "total_return", value: (row) => fmt.pct(row.total_return, 0) },
+      { label: "Buy and hold", key: "benchmark_return", value: (row) => fmt.pct(row.benchmark_return, 0) },
+      { label: "Gap", key: "excess_return", value: (row) => `<span class="badge ${row.excess_return > 0 ? "ok" : "bad"}">${escapeHtml(pointsGap(row.excess_return))}</span>` },
+      { label: "Worst drop", key: "max_drawdown", value: (row) => fmt.pct(row.max_drawdown, 0) },
+      { label: "In market", key: "pct_in_market", value: (row) => fmt.pct(row.pct_in_market, 0) },
+      { label: "Avg trades", key: "trades", value: (row) => fmt.int(row.trades) },
+    ],
+    engines,
+    "No scorecard rows yet.",
+  );
+
+  const assetRows = assets.map((asset) => {
+    const byEngine = Object.fromEntries((asset.engines || []).map((engine) => [engine.engine, engine]));
+    return { ...asset, byEngine };
+  });
+  const hitCell = (engineId) => (row) => {
+    const metrics = row.byEngine[engineId];
+    if (!metrics || metrics.hit_rate_active === null || metrics.hit_rate_active === undefined) return "—";
+    const klass = metrics.hit_rate_active >= 0.6 ? "ok" : "neutral";
+    return `<span class="badge ${klass}">${fmt.pct(metrics.hit_rate_active, 1)}</span> <span class="mono">${fmt.pct(metrics.total_return, 0)}</span>`;
+  };
+  renderTable(
+    document.getElementById("scorecardAssetWrap"),
+    [
+      { label: "Coin", key: "symbol", value: (row) => escapeHtml(String(row.symbol).replace("-USD", "")) },
+      { label: "Buy and hold", key: "benchmark_return", value: (row) => fmt.pct(row.benchmark_return, 0) },
+      { label: "Up days", key: "market_up_day_rate", value: (row) => fmt.pct(row.market_up_day_rate, 1) },
+      { label: "Cerberus hit / return", key: "cerberus", value: hitCell("cerberus") },
+      { label: "Orthrus hit / return", key: "orthrus", value: hitCell("orthrus") },
+      { label: "Hydra hit / return", key: "hydra", value: hitCell("hydra") },
+      { label: "Sisyphus hit / return", key: "sisyphus", value: hitCell("sisyphus") },
+    ],
+    assetRows,
+    "No per-coin rows yet.",
+  );
+}
+
+async function loadScorecard() {
+  const path = window.TEMPLATE_CONFIG?.scorecardPath || "./scorecard.json";
+  const res = await fetch(path, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Scorecard fetch failed: ${res.status}`);
+  renderScorecard(await res.json());
+}
+
+async function loadTemplateConfig() {
+  try {
+    const res = await fetch("./template.config.json", { cache: "no-store" });
+    if (!res.ok) return;
+    const config = await res.json();
+    window.TEMPLATE_CONFIG = config;
+    if (config.productName) {
+      const title = document.querySelector("h1");
+      if (title) title.textContent = config.productName;
+      document.title = config.productName;
+    }
+    if (config.subtitle) {
+      const subtitle = document.querySelector(".subtitle");
+      if (subtitle) subtitle.textContent = config.subtitle;
+    }
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 async function loadDashboard() {
+  if (DASHBOARD_MODE === "demo") {
+    const payload = await loadBundledDashboardState();
+    renderDashboard(payload);
+    return payload;
+  }
+  if (!dashboardEndpoint()) {
+    throw new Error("Paste an API base and save it.");
+  }
   const res = await fetch(dashboardEndpoint(), { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`Dashboard fetch failed: ${res.status}`);
@@ -738,6 +911,17 @@ async function refreshDashboard() {
   }
 
   try {
+    await loadScorecard();
+  } catch (error) {
+    ok = false;
+    console.error(error);
+    const lastError = document.getElementById("lastErrorText");
+    if (lastError) lastError.textContent = `Last error: ${error.message}`;
+    const caveat = document.getElementById("scorecardCaveat");
+    if (caveat) caveat.textContent = "The scorecard file did not load. From the project folder run python3 scripts/build_regime_scorecard.py.";
+  }
+
+  try {
     await loadProcesses();
   } catch (error) {
     ok = false;
@@ -749,15 +933,26 @@ async function refreshDashboard() {
   document.body.dataset.status = ok ? "ok" : "error";
   const successText = document.getElementById("lastSuccessText");
   const reachabilityText = document.getElementById("backendReachabilityText");
-  if (successText && ok) successText.textContent = `Last successful fetch: ${now.toLocaleString()}`;
-  if (reachabilityText) reachabilityText.textContent = `Backend reachable: ${ok ? "yes" : "no"}`;
+  const lastError = document.getElementById("lastErrorText");
+  if (ok && lastError) lastError.textContent = "";
+  if (successText && ok) successText.textContent = DASHBOARD_MODE === "demo" ? `Sample data loaded: ${now.toLocaleString()}` : `Last successful fetch: ${now.toLocaleString()}`;
+  if (reachabilityText) {
+    reachabilityText.textContent = DASHBOARD_MODE === "demo"
+      ? "Demo sample loaded. No engine API was called."
+      : `Backend reachable: ${ok ? "yes" : "no"}`;
+  }
   if (!ok) {
     const footer = document.getElementById("dashboardUpdated");
     if (footer) footer.textContent = "Last updated: unavailable";
   }
 }
 
-initBackendControls();
+async function boot() {
+  await loadTemplateConfig();
+  if (!localStorage.getItem(MODE_STORAGE_KEY)) {
+    setMode(window.TEMPLATE_CONFIG?.defaultMode || DEFAULT_MODE);
+  }
+  initBackendControls();
 
 renderProcessCards({ services: DEFAULT_PROCESS_SERVICES.map((service) => ({
   ...service,
@@ -778,6 +973,9 @@ renderProcessCards({ services: DEFAULT_PROCESS_SERVICES.map((service) => ({
   monitored_paths: [],
 })) });
 
-refreshDashboard();
+await refreshDashboard();
 setInterval(refreshDashboard, REFRESH_MS);
 setInterval(() => loadProcesses().catch((error) => console.error(error)), PROCESS_REFRESH_MS);
+}
+
+boot();

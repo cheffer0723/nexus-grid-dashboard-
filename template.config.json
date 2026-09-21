@@ -1,0 +1,6 @@
+{
+  "productName": "Nexus Observability",
+  "subtitle": "Trader dashboard template. Compare regime rules on one coin list, then point the panels at your own paper engine.",
+  "defaultMode": "demo",
+  "scorecardPath": "./scorecard.json"
+}

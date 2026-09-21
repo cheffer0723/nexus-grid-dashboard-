@@ -10,7 +10,7 @@
     <header class="topbar">
       <div>
         <h1>Nexus Observability</h1>
-        <p class="subtitle">Monitoring surface for engine state, trades, ML shadow output, regime performance, and local process control.</p>
+        <p class="subtitle">Trader dashboard template. Compare regime rules on one coin list, then point the panels at your own paper engine.</p>
       </div>
       <div class="status-pills">
         <span class="pill" id="engineModePill">Engine: …</span>
@@ -20,11 +20,27 @@
     </header>
 
     <main class="grid">
+      <section class="card wide" id="scorecardCard">
+        <div class="card-head">
+          <div>
+            <h2>Regime scorecard</h2>
+            <p class="card-note" id="scorecardNote">Same coins, same dates, same fee.</p>
+          </div>
+          <span class="stamp" id="scorecardStamp">—</span>
+        </div>
+        <div id="scorecardLeads" class="score-leads"></div>
+        <p class="score-caveat" id="scorecardCaveat"></p>
+        <div class="table-wrap" id="scorecardEngineWrap"></div>
+        <h3 class="score-subhead">Each coin</h3>
+        <p class="card-note">Hit rate, then the rule's return over the same window.</p>
+        <div class="table-wrap" id="scorecardAssetWrap"></div>
+      </section>
+
       <section class="card hero">
         <div class="card-head">
           <div>
             <h2>Current Engine State</h2>
-            <p class="card-note">Latest packet plus system snapshot.</p>
+            <p class="card-note">Sample until you connect an engine API. A live packet replaces this.</p>
           </div>
           <span class="stamp" id="engineSourceStamp">Source: …</span>
         </div>
@@ -35,22 +51,23 @@
         <div class="card-head">
           <div>
             <h2>Backend API</h2>
-            <p class="card-note">Buttons call this base URL, saved in your browser.</p>
+            <p class="card-note">Demo mode needs no address. Paste your engine API when you have one. Saved in this browser only.</p>
           </div>
           <span class="pill neutral" id="backendStatusPill">Backend: unknown</span>
         </div>
         <div class="backend-row">
           <label class="backend-label" for="modeSelect">Mode</label>
           <select id="modeSelect" class="backend-input">
-            <option value="remote">Remote, read-only (Railway)</option>
-            <option value="remoteControl">Remote control (DO or other backend)</option>
-            <option value="local">Local, control enabled</option>
+            <option value="demo">Demo sample</option>
+            <option value="remote">Your API, read-only</option>
+            <option value="remoteControl">Your API, with control</option>
+            <option value="local">This computer, control on</option>
           </select>
           <span class="backend-button" id="frontendCommitText">Build: unknown</span>
         </div>
         <div class="backend-row">
           <label class="backend-label" for="apiBaseInput">API base</label>
-          <input id="apiBaseInput" class="backend-input" type="text" spellcheck="false" />
+          <input id="apiBaseInput" class="backend-input" type="text" spellcheck="false" placeholder="https://your-engine.example.com" />
           <button id="saveApiBaseButton" class="backend-button" type="button">Save</button>
         </div>
         <div class="backend-row">
@@ -112,7 +129,7 @@
         <div class="card-head">
           <div>
             <h2>Recent Trades</h2>
-            <p class="card-note">Closed positions from the paper execution history.</p>
+            <p class="card-note">Sample closed positions until your engine sends its own history.</p>
           </div>
           <span class="stamp" id="tradeCountStamp">—</span>
         </div>
