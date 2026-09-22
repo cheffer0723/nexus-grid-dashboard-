@@ -202,9 +202,62 @@
   }
 }
 
+/* Ring / carousel coach stage */
+.nexus-coach-root--ring {
+  width: min(760px, calc(100vw - 2rem));
+}
+
+@media (min-width: 1024px) {
+  .nexus-coach-root--ring {
+    width: min(820px, calc(100vw - 21rem));
+  }
+}
+
+.nexus-coach-panel--ring {
+  max-height: min(88vh, 720px);
+  overflow: hidden;
+  gap: 0.7rem;
+}
+
+.nexus-coach-tabs {
+  display: inline-flex;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, #fff 12%, transparent);
+  background: color-mix(in srgb, #05070d 45%, transparent);
+  width: fit-content;
+}
+
+.nexus-coach-tabs button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  background: transparent;
+  color: #9eb0d0;
+  font: 700 0.75rem/1 Rajdhani, system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.nexus-coach-tabs button.is-active {
+  background: color-mix(in srgb, var(--nexus-gateway, #3b82f6) 28%, #05070d);
+  color: #f4f7ff;
+}
+
+.nexus-coach-ring-host {
+  min-height: 380px;
+}
+
 @media (max-width: 720px) {
   .nexus-coach-root {
     inset: auto 0.65rem 0.65rem 0.65rem;
     width: auto;
+  }
+
+  .nexus-coach-panel--ring {
+    max-height: min(86vh, 680px);
+    overflow: auto;
   }
 }

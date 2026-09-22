@@ -8,70 +8,90 @@
     }
   })();
 
+  const STARTER = [
+    {
+      eyebrow: "Step 01",
+      accent: "var(--nexus-vault, #22d3ee)",
+      title: "You are on paper",
+      body: "This desk starts in <strong>paper mode</strong>. It watches public market data and simulates trades. No exchange keys. Nothing here can spend real money until you deliberately turn live on later.",
+    },
+    {
+      eyebrow: "Step 02",
+      accent: "var(--nexus-observer, #f97316)",
+      title: "Watch Observe tick",
+      body: "Stay on <strong>Observe</strong>. Look for heartbeat / engine status updating. If it ticks, your desk is running — you’re in.",
+    },
+    {
+      eyebrow: "Step 03",
+      accent: "var(--nexus-gateway, #3b82f6)",
+      title: "Learn the left rail",
+      body: "Gateway = market feed. Core = engine. Sentinel = safety lock. Vault = settings. Observer = what’s happening. Spin the Agents deck for the marks.",
+    },
+    {
+      eyebrow: "Step 04",
+      accent: "var(--nexus-sentinel, #eab308)",
+      title: "Live later — optional",
+      body: `Only after paper feels boring-in-a-good-way. Create Kraken keys at <a href="https://www.kraken.com/u/security/api" target="_blank" rel="noopener noreferrer">kraken.com/u/security/api</a>. Minimum permissions. Paste <code>KRAKEN_API_KEY</code> / <code>SECRET</code>, then flip paper-only / live-arm only when you mean it. Sentinel still gates arming.`,
+    },
+  ];
+
+  const AGENTS = [
+    {
+      eyebrow: "Gateway",
+      accent: "var(--nexus-gateway, #3b82f6)",
+      media: "/brand/agents/gateway.png",
+      title: "Ingest. Connect. Enter.",
+      body: "Market feed / prices coming in. This is how the desk sees the world.",
+    },
+    {
+      eyebrow: "Core",
+      accent: "var(--nexus-core, #a855f7)",
+      media: "/brand/agents/core.png",
+      title: "Execute. Adapt. Evolve.",
+      body: "The paper engine doing the work — loops, signals, decisions.",
+    },
+    {
+      eyebrow: "Vault",
+      accent: "var(--nexus-vault, #22d3ee)",
+      media: "/brand/agents/vault.png",
+      title: "Store. Structure. Remember.",
+      body: "Settings: symbol, size, stops. Your knobs without touching code.",
+    },
+    {
+      eyebrow: "Sentinel",
+      accent: "var(--nexus-sentinel, #eab308)",
+      media: "/brand/agents/sentinel.png",
+      title: "Protect. Defend. Preserve.",
+      body: "Safety lock. Live arming stays gated until you opt in on purpose.",
+    },
+    {
+      eyebrow: "Observer",
+      accent: "var(--nexus-observer, #f97316)",
+      media: "/brand/agents/observer.png",
+      title: "Analyze. Learn. Anticipate.",
+      body: "What’s happening right now — status, logs, heartbeat.",
+    },
+  ];
+
   const root = document.createElement("div");
-  root.className = "nexus-coach-root";
+  root.className = "nexus-coach-root nexus-coach-root--ring";
   root.innerHTML = `
     <button type="button" class="nexus-coach-fab" data-coach-open hidden>New here?</button>
-    <section class="nexus-coach-panel" data-coach-panel hidden aria-label="Nexus desk starter guide">
+    <section class="nexus-coach-panel nexus-coach-panel--ring" data-coach-panel hidden aria-label="Nexus desk starter guide">
       <div class="nexus-coach-head">
         <div>
-          <p class="nexus-coach-kicker">Feet wet · not live yet</p>
+          <p class="nexus-coach-kicker">Feet wet · not flintstones</p>
           <h2 class="nexus-coach-title">Welcome to the desk</h2>
         </div>
         <button type="button" class="nexus-coach-close" data-coach-minimize aria-label="Minimize guide">×</button>
       </div>
 
-      <div class="nexus-coach-step">
-        <h3>1. You are on paper money</h3>
-        <p>
-          This template starts in <strong>paper mode</strong>. It watches public market data and
-          simulates trades. No exchange keys. Nothing here can spend real money until you
-          deliberately turn live on later.
-        </p>
+      <div class="nexus-coach-tabs" role="tablist">
+        <button type="button" class="is-active" data-deck="starter" role="tab" aria-selected="true">Starter</button>
+        <button type="button" data-deck="agents" role="tab" aria-selected="false">Agents</button>
       </div>
 
-      <div class="nexus-coach-step">
-        <h3>2. First thing to check</h3>
-        <ol>
-          <li>Stay on <strong>Observe</strong> (home).</li>
-          <li>Look for heartbeat / engine status updating.</li>
-          <li>If it ticks, your desk is running. You’re in.</li>
-        </ol>
-      </div>
-
-      <div class="nexus-coach-step">
-        <h3>3. What the left words mean</h3>
-        <ul class="nexus-coach-agents">
-          <li><span class="nexus-coach-dot" style="--c:var(--nexus-observer,#f97316)"></span><strong>Observe</strong><span>What’s happening right now</span></li>
-          <li><span class="nexus-coach-dot" style="--c:var(--nexus-gateway,#3b82f6)"></span><strong>Gateway</strong><span>Market feed / prices coming in</span></li>
-          <li><span class="nexus-coach-dot" style="--c:var(--nexus-core,#a855f7)"></span><strong>Core</strong><span>The paper engine doing the work</span></li>
-          <li><span class="nexus-coach-dot" style="--c:var(--nexus-sentinel,#eab308)"></span><strong>Sentinel</strong><span>Safety lock — live stays gated</span></li>
-          <li><span class="nexus-coach-dot" style="--c:var(--nexus-vault,#22d3ee)"></span><strong>Vault</strong><span>Settings (symbol, size, stops)</span></li>
-        </ul>
-      </div>
-
-      <div class="nexus-coach-step nexus-coach-warn">
-        <h3>4. Want live later? Keys are optional — and careful</h3>
-        <p>
-          Only after paper feels boring-in-a-good-way. Live needs Kraken API keys in Railway
-          variables, plus flipping paper-only / live-arm flags on purpose.
-        </p>
-        <ol>
-          <li>
-            Create keys in your Kraken account:
-            <a href="https://www.kraken.com/u/security/api" target="_blank" rel="noopener noreferrer">kraken.com/u/security/api</a>
-            (or Kraken’s guide:
-            <a href="https://support.kraken.com/articles/360000919966-how-to-generate-an-api-key-pair" target="_blank" rel="noopener noreferrer">how to generate an API key pair</a>).
-          </li>
-          <li>Permissions: start with the minimum needed for trading you intend — never withdraw if you don’t need it.</li>
-          <li>Paste into Railway as <code>KRAKEN_API_KEY</code> and <code>KRAKEN_API_SECRET</code>.</li>
-          <li>Then set <code>NEXUS_PAPER_ONLY=0</code> and <code>NEXUS_DASHBOARD_ALLOW_LIVE_ARM=1</code> only when you mean it.</li>
-        </ol>
-        <p style="margin-top:0.55rem">
-          Sentinel still blocks live arming until those flags and confirmations are set.
-          If you’re unsure, stay paper.
-        </p>
-      </div>
+      <div data-ring-host class="nexus-coach-ring-host"></div>
 
       <div class="nexus-coach-actions">
         <button type="button" class="primary" data-coach-got-it>Got it — I’m on paper</button>
@@ -82,19 +102,38 @@
 
   const panel = root.querySelector("[data-coach-panel]");
   const fab = root.querySelector("[data-coach-open]");
+  const host = root.querySelector("[data-ring-host]");
+  let ring = null;
+  let deck = "starter";
 
   function persist(next) {
     Object.assign(state, next, { updatedAt: Date.now() });
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
-      /* ignore quota / private mode */
+      /* ignore */
     }
   }
 
   function showPanel(open) {
     panel.hidden = !open;
     fab.hidden = open;
+    if (open) mountDeck(deck);
+  }
+
+  function mountDeck(name) {
+    deck = name;
+    root.querySelectorAll(".nexus-coach-tabs button").forEach((btn) => {
+      const on = btn.dataset.deck === name;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    if (ring) ring.destroy();
+    const items = name === "agents" ? AGENTS : STARTER;
+    if (!window.NexusRing) return;
+    ring = window.NexusRing.create(host, items, {
+      accent: name === "agents" ? "var(--nexus-gateway, #3b82f6)" : "var(--nexus-vault, #22d3ee)",
+    });
   }
 
   function openCoach() {
@@ -115,13 +154,19 @@
     persist({ dismissed: true, completed: true });
     showPanel(false);
   });
+  root.querySelectorAll(".nexus-coach-tabs button").forEach((btn) => {
+    btn.addEventListener("click", () => mountDeck(btn.dataset.deck));
+  });
 
-  document.body.appendChild(root);
+  function boot() {
+    document.body.appendChild(root);
+    if (state.completed || state.dismissed) showPanel(false);
+    else showPanel(true);
+  }
 
-  // First visit: open. Returning visitors who dismissed: FAB only.
-  if (state.completed || state.dismissed) {
-    showPanel(false);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
   } else {
-    showPanel(true);
+    boot();
   }
 })();
