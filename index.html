@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Nexus Observability Dashboard</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23121923'/%3E%3Cpath d='M3 11 L6 6 L9 9 L13 4' stroke='%2356b6ff' fill='none' stroke-width='1.6'/%3E%3C/svg%3E" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%2312151a'/%3E%3Cpath d='M3 11 L6 6 L9 9 L13 4' stroke='%23c4a46a' fill='none' stroke-width='1.6'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -14,14 +14,23 @@
         <p class="subtitle">Trader dashboard template. Compare regime rules on one coin list, then point the panels at your own paper engine.</p>
       </div>
       <div class="status-pills">
-        <span class="pill" id="engineModePill">Engine: …</span>
-        <span class="pill" id="mlPill">ML: …</span>
-        <span class="pill" id="freshnessPill">Updated: …</span>
+        <div class="status-item">
+          <span class="status-k">Engine</span>
+          <span class="status-value" id="engineModePill">…</span>
+        </div>
+        <div class="status-item">
+          <span class="status-k">Model</span>
+          <span class="status-value" id="mlPill">…</span>
+        </div>
+        <div class="status-item">
+          <span class="status-k">Updated</span>
+          <span class="status-value" id="freshnessPill">…</span>
+        </div>
       </div>
     </header>
 
     <main class="grid">
-      <section class="card wide" id="scorecardCard">
+      <section class="card" id="scorecardCard">
         <div class="card-head">
           <div>
             <h2>Regime scorecard</h2>
@@ -30,64 +39,69 @@
           <span class="stamp" id="scorecardStamp">—</span>
         </div>
         <div id="scorecardLeads" class="score-leads"></div>
-        <p class="score-caveat" id="scorecardCaveat"></p>
+        <div class="score-caveat" id="scorecardCaveat"></div>
         <div class="table-wrap" id="scorecardEngineWrap"></div>
-        <h3 class="score-subhead">Each coin</h3>
-        <p class="card-note">Hit rate, then the rule's return over the same window.</p>
+        <h3 class="score-subhead">By coin</h3>
+        <p class="card-note">Hit rate on the first line. Return for the same window underneath.</p>
         <div class="table-wrap" id="scorecardAssetWrap"></div>
       </section>
 
-      <section class="card hero">
+      <section class="card">
         <div class="card-head">
           <div>
-            <h2>Current Engine State</h2>
-            <p class="card-note">Sample until you connect an engine API. A live packet replaces this.</p>
+            <h2>Engine</h2>
+            <p class="card-note">Sample tape until an engine API replaces it.</p>
           </div>
-          <span class="stamp" id="engineSourceStamp">Source: …</span>
+          <span class="stamp" id="engineSourceStamp">—</span>
         </div>
-        <div id="engineStateGrid" class="kv-grid"></div>
+        <div id="engineStateGrid"></div>
       </section>
 
-      <section class="card wide">
+      <section class="card">
         <div class="card-head">
           <div>
-            <h2>Backend API</h2>
+            <h2>Connection</h2>
             <p class="card-note">Demo mode needs no address. Paste your engine API when you have one. Saved in this browser only.</p>
           </div>
           <span class="pill neutral" id="backendStatusPill">Backend: unknown</span>
         </div>
-        <div class="backend-row">
-          <label class="backend-label" for="modeSelect">Mode</label>
-          <select id="modeSelect" class="backend-input">
-            <option value="demo">Demo sample</option>
-            <option value="remote">Your API, read-only</option>
-            <option value="remoteControl">Your API, with control</option>
-            <option value="local">This computer, control on</option>
-          </select>
-          <span class="backend-button" id="frontendCommitText">Build: unknown</span>
+        <div class="settings">
+          <div class="setting">
+            <label for="modeSelect">Mode</label>
+            <select id="modeSelect" class="backend-input">
+              <option value="demo">Demo sample</option>
+              <option value="remote">Your API, read-only</option>
+              <option value="remoteControl">Your API, with control</option>
+              <option value="local">This computer, control on</option>
+            </select>
+          </div>
+          <div class="setting">
+            <label for="apiBaseInput">API base</label>
+            <div class="setting-control">
+              <input id="apiBaseInput" class="backend-input" type="text" spellcheck="false" placeholder="https://your-engine.example.com" />
+              <button id="saveApiBaseButton" class="backend-button" type="button">Save</button>
+            </div>
+          </div>
+          <div class="setting">
+            <label for="controlTokenInput">Control token</label>
+            <div class="setting-control">
+              <input id="controlTokenInput" class="backend-input" type="password" spellcheck="false" placeholder="Only for control mode" />
+              <button id="saveControlTokenButton" class="backend-button" type="button">Save</button>
+            </div>
+          </div>
         </div>
-        <div class="backend-row">
-          <label class="backend-label" for="apiBaseInput">API base</label>
-          <input id="apiBaseInput" class="backend-input" type="text" spellcheck="false" placeholder="https://your-engine.example.com" />
-          <button id="saveApiBaseButton" class="backend-button" type="button">Save</button>
-        </div>
-        <div class="backend-row">
-          <label class="backend-label" for="controlTokenInput">Control token</label>
-          <input id="controlTokenInput" class="backend-input" type="password" spellcheck="false" />
-          <button id="saveControlTokenButton" class="backend-button" type="button">Save</button>
-        </div>
-        <div class="backend-hint mono" id="backendBaseText"></div>
-        <div class="backend-hint" id="backendReachabilityText"></div>
-        <div class="backend-hint" id="lastSuccessText"></div>
-        <div class="backend-hint" id="lastErrorText"></div>
+        <p class="quiet mono" id="backendBaseText"></p>
+        <p class="quiet" id="backendReachabilityText"></p>
+        <p class="quiet" id="lastSuccessText"></p>
+        <p class="quiet" id="lastErrorText"></p>
+        <p class="quiet mono" id="frontendCommitText">Build: unknown</p>
       </section>
 
-
-      <section class="card wide handoff-card" id="workflowHandoffCard" hidden>
+      <section class="card handoff-card" id="workflowHandoffCard" hidden>
         <div class="card-head">
           <div>
-            <h2>ML Task Handoff</h2>
-            <p class="card-note">Current pickup status for the BayForest → SignalForest and liquidity regime workstream.</p>
+            <h2>ML task handoff</h2>
+            <p class="card-note">Pickup status for the BayForest, SignalForest, and liquidity regime work.</p>
           </div>
           <span class="pill neutral" id="workflowHandoffStatus">Status: —</span>
         </div>
@@ -95,12 +109,11 @@
         <div class="handoff-list" id="workflowHandoffList"></div>
       </section>
 
-
-      <section class="card wide incident-card" id="deploymentIncidentCard" hidden>
+      <section class="card incident-card" id="deploymentIncidentCard" hidden>
         <div class="card-head">
           <div>
-            <h2>Deployment Incident</h2>
-            <p class="card-note">Recent production job status for the static GitHub information view.</p>
+            <h2>Deployment incident</h2>
+            <p class="card-note">Shown only when the engine packet includes one.</p>
           </div>
           <span class="pill bad" id="deploymentIncidentStatus">Status: —</span>
         </div>
@@ -115,21 +128,22 @@
         <pre class="incident-log mono" id="deploymentIncidentLog"></pre>
       </section>
 
-      <section class="card wide">
+      <section class="card">
         <div class="card-head">
           <div>
-            <h2>Process Control</h2>
-            <p class="card-note">Start, stop, and restart the local Nexus services.</p>
+            <h2>Processes</h2>
+            <p class="card-note">Start, stop, and restart the local services once a control API is connected.</p>
           </div>
           <span class="stamp" id="processCountStamp">—</span>
         </div>
+        <p class="card-note process-notice" id="processNotice" hidden></p>
         <div id="processCards" class="process-grid"></div>
       </section>
 
-      <section class="card wide">
+      <section class="card">
         <div class="card-head">
           <div>
-            <h2>Recent Trades</h2>
+            <h2>Recent trades</h2>
             <p class="card-note">Sample closed positions until your engine sends its own history.</p>
           </div>
           <span class="stamp" id="tradeCountStamp">—</span>
@@ -137,28 +151,28 @@
         <div class="table-wrap" id="recentTradesWrap"></div>
       </section>
 
-      <section class="card wide">
+      <section class="card">
         <div class="card-head">
           <div>
-            <h2>ML Disagreement Monitor</h2>
-            <p class="card-note">Rows where deterministic and ML shadow regimes differ.</p>
+            <h2>Model disagreements</h2>
+            <p class="card-note">Rows where the deterministic regime and the ML shadow disagree.</p>
           </div>
           <span class="stamp" id="disagreementCountStamp">—</span>
         </div>
         <div class="table-wrap" id="disagreementWrap"></div>
       </section>
 
-      <section class="card wide">
+      <section class="card">
         <div class="card-head">
           <div>
-            <h2>Regime Performance Summary</h2>
-            <p class="card-note">Grouped by deterministic regime and ML regime.</p>
+            <h2>Regime summary</h2>
+            <p class="card-note">Closed trades grouped by deterministic regime and by the ML regime.</p>
           </div>
           <span class="stamp" id="summaryMetaStamp">—</span>
         </div>
         <div class="summary-grid">
           <div>
-            <h3>Deterministic regime</h3>
+            <h3>Deterministic</h3>
             <div class="table-wrap" id="deterministicSummaryWrap"></div>
           </div>
           <div>
@@ -170,8 +184,8 @@
     </main>
 
     <footer class="footer">
-      <span id="dashboardUpdated">Last updated: —</span>
-      <span id="dashboardSource">Source: —</span>
+      <span id="dashboardUpdated">Updated —</span>
+      <span id="dashboardSource">Source —</span>
     </footer>
 
     <script src="./app.js" data-commit="2674958"></script>
