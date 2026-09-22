@@ -36,6 +36,20 @@ Hosting this template means running a single Railway service from the `desk/` fo
 
 Railway is a singular platform to deploy your infrastructure stack. Railway will host your infrastructure so you don't have to deal with configuration, while allowing you to vertically and horizontally scale it. By deploying Nexus Grid Desk on Railway, you are one step closer to supporting a complete full-stack application with minimal burden. Host your servers, databases, AI agents, and more on Railway.
 
+## First-run coach
+
+The desk opens a plain-language **New here?** guide for new traders:
+
+1. You are on paper money  
+2. Watch Observe / heartbeat  
+3. What Gateway · Core · Sentinel · Vault · Observer mean  
+4. Optional live later — where to create Kraken API keys, minimum permissions, Railway variable names, and that Sentinel still gates live arming  
+
+Kraken key links used in the coach:
+
+- https://www.kraken.com/u/security/api  
+- https://support.kraken.com/articles/360000919966-how-to-generate-an-api-key-pair  
+
 ## Variables (all optional for paper)
 
 | Variable | Default | When to set |
