@@ -15,21 +15,14 @@ Marketplace / appetite-test overview: [`TEMPLATE.md`](TEMPLATE.md)
 
 No DigitalOcean panel. No second host for paper. No Replit URLs. No OpenAI keys for this template.
 
-## Publish as a Railway template (appetite test)
+## Railway template (appetite test)
 
-You already have a working project on Railway. Turn it into a shareable template:
+Published: **[nexus-grid-desk](https://railway.com/deploy/nexus-grid-desk)**
 
-1. Open the Railway **project** that runs `nexus-grid-webapp`.
-2. Project **Settings** → **Generate Template from Project** → **Create Template**.
-3. In the template composer, confirm the service has:
-   - GitHub source: `cheffer0723/nexus-grid-dashboard-`
-   - **Root directory:** `desk`
-   - Public HTTP networking on
-   - Healthcheck `/api/health`
-   - Paper defaults only — **do not** bake real Kraken secrets into the template
-4. Create the template (personal first).
-5. Copy the **template URL** and share it (Twitter, Discord, HN, etc.) to measure deploys.
-6. Optional: **Publish** to the Railway marketplace when you want discovery + kickbacks.
+- Service icon on `nexus-grid-webapp`: Python Devicon
+- Root directory: `desk`
+- Healthcheck: `/api/health`
+- Paper default = zero secrets
 
 Keep copy honest: paper desk / operator UI, not “guaranteed alpha.”
 

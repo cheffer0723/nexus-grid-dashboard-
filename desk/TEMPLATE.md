@@ -1,47 +1,40 @@
-# Nexus Grid Desk
+# Deploy and Host Nexus Grid Desk with Railway
 
-**Paper trading operator desk you can deploy in one click.**  
-No exchange keys required to try it. Optional Kraken keys only if you later arm live.
+Nexus Grid Desk is a paper trading operator desk you can deploy in one click. It ships an operator UI plus an in-process paper observer on public Kraken market data. No exchange keys are required to try it. Optional Kraken keys are only needed if you later arm live trading on purpose.
 
-## Marketplace assets
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/nexus-grid-desk)
 
-- Icon (512×512): [`public/template-icon.png`](public/template-icon.png)
-- Raw URL on this branch (paste into Railway template image field):
+Published listing: https://railway.com/deploy/nexus-grid-desk
 
-```text
-https://raw.githubusercontent.com/cheffer0723/nexus-grid-dashboard-/cursor/nexus-desk-template-ee93/desk/public/template-icon.png
-```
+## About Hosting Nexus Grid Desk
 
-After merge to `main`, use:
+Hosting this template means running a single Railway service from the `desk/` folder of the public GitHub repo. Railway builds the Dockerfile, exposes public HTTP on port 8080, and health-checks `/api/health`. The paper loop runs in-process, so you do not need a second worker, database, or DigitalOcean droplet for the appetite-test deploy. Live arming stays gated behind explicit flags and credentials you choose later.
 
-```text
-https://raw.githubusercontent.com/cheffer0723/nexus-grid-dashboard-/main/desk/public/template-icon.png
-```
+## Common Use Cases
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new)
+- Spin up a paper trading control surface before wiring a broker
+- Share a one-click Railway desk with traders who bounce on multi-key signup
+- Demo operator panels (status, market, core, logs, control, config, instance)
+- Attach an optional research scorecard JSON for honest regime replay context
+- Keep research/ML in a separate project while the desk stays zero-secret by default
 
-> After you publish the template in Railway, replace the button URL with your template link from **Workspace → Templates**.
+## Dependencies for Nexus Grid Desk Hosting
 
-## What this is
+- Public GitHub source: `cheffer0723/nexus-grid-dashboard-` (root directory `desk`)
+- Python / FastAPI runtime built from the included Dockerfile
+- Public Kraken market data for paper mode (no API keys)
+- Optional Kraken API key/secret only if you deliberately enable live
 
-A single Railway service that runs:
+### Deployment Dependencies
 
-- Operator UI (status, market, core, logs, control, config, instance)
-- In-process paper observer on public Kraken BTC/USD (and ETH ticker)
-- Health check at `/api/health`
-- Optional research scorecard panel (bundled replay JSON)
+- Railway public HTTP networking on the service
+- Healthcheck path `/api/health`
+- Optional variables documented below (all optional for paper)
+- Live demo reference: https://nexus.supersym.xyz
 
-It is a **desk template**, not a claim of edge. The bundled regime scorecard is an honest research replay: these fixed rules lagged buy-and-hold on the published window.
+### Why Deploy Nexus Grid Desk on Railway?
 
-## Appetite test positioning
-
-Ship this to see who deploys a paper desk:
-
-- Traders who want a control surface before wiring a broker
-- Builders who want a Railway-native starting point
-- People who will bounce if signup asks for four API keys up front
-
-**Default deploy = zero secrets.** Live stays gated.
+Railway is a singular platform to deploy your infrastructure stack. Railway will host your infrastructure so you don't have to deal with configuration, while allowing you to vertically and horizontally scale it. By deploying Nexus Grid Desk on Railway, you are one step closer to supporting a complete full-stack application with minimal burden. Host your servers, databases, AI agents, and more on Railway.
 
 ## Variables (all optional for paper)
 
@@ -58,28 +51,4 @@ Ship this to see who deploys a paper desk:
 | `NEXUS_DASHBOARD_ALLOW_LIVE_ARM` | `0` | Leave off for the template |
 | `NEXUS_SCORECARD_URL` | empty | Optional external scorecard JSON |
 
-## Repo layout
-
-This package lives in the `desk/` folder of [`nexus-grid-dashboard-`](https://github.com/cheffer0723/nexus-grid-dashboard-).
-
-When creating the Railway template service:
-
-- **Source:** that GitHub repo (public)
-- **Root directory:** `desk`
-- **Healthcheck:** `/api/health`
-- **Public HTTP:** enabled (container port `8080`)
-
-## Local
-
-```bash
-cd desk
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-uvicorn backend.main:app --host 127.0.0.1 --port 8080
-```
-
-## Related
-
-- **Critical-Mass-Lab** — research, algorithms, scorecards, later ML (separate Railway project, no buyer keys).
-- Live demo: `https://nexus.supersym.xyz`
+It is a desk template, not a claim of edge. The bundled regime scorecard is an honest research replay: these fixed rules lagged buy-and-hold on the published window.
