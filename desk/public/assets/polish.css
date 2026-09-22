@@ -130,8 +130,8 @@ header .backdrop-blur-xl.text-warning,
   border-color: color-mix(in srgb, var(--nexus-gateway) 28%, transparent) !important;
 }
 
-/* Favicon-sized brand chip in rail if present */
-.nexus-command-rail img[alt*="Nexus"],
-.nexus-command-rail svg {
+/* Favicon-sized brand chip in rail header only */
+.nexus-command-rail > div:first-child svg,
+.nexus-command-rail h1 + svg {
   filter: drop-shadow(0 0 6px var(--nexus-gateway-glow));
 }
