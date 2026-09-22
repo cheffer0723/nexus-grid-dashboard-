@@ -1,22 +1,31 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
   <defs>
-    <radialGradient id="g" cx="30%" cy="20%" r="70%">
-      <stop offset="0%" stop-color="#0a3a44" stop-opacity="0.55"/>
-      <stop offset="55%" stop-color="#070b14" stop-opacity="0.9"/>
-      <stop offset="100%" stop-color="#04060c" stop-opacity="1"/>
+    <radialGradient id="wash" cx="28%" cy="18%" r="72%">
+      <stop offset="0%" stop-color="#1e3a8a" stop-opacity="0.45"/>
+      <stop offset="40%" stop-color="#0b1220" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#05070d" stop-opacity="1"/>
     </radialGradient>
     <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
-      <path d="M48 0H0V48" fill="none" stroke="#2ec7d6" stroke-opacity="0.07" stroke-width="1"/>
+      <path d="M48 0H0V48" fill="none" stroke="#22d3ee" stroke-opacity="0.06" stroke-width="1"/>
     </pattern>
-    <linearGradient id="beam" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#2ec7d6" stop-opacity="0"/>
-      <stop offset="45%" stop-color="#2ec7d6" stop-opacity="0.12"/>
-      <stop offset="100%" stop-color="#2ec7d6" stop-opacity="0"/>
+    <linearGradient id="stack" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="25%" stop-color="#a855f7"/>
+      <stop offset="50%" stop-color="#22d3ee"/>
+      <stop offset="75%" stop-color="#eab308"/>
+      <stop offset="100%" stop-color="#f97316"/>
     </linearGradient>
   </defs>
-  <rect width="1600" height="900" fill="#05080f"/>
-  <rect width="1600" height="900" fill="url(#g)"/>
+  <rect width="1600" height="900" fill="#05070d"/>
+  <rect width="1600" height="900" fill="url(#wash)"/>
   <rect width="1600" height="900" fill="url(#grid)"/>
-  <path d="M0 720 L520 420 L900 560 L1600 180" fill="none" stroke="url(#beam)" stroke-width="2"/>
-  <circle cx="1180" cy="210" r="120" fill="#2ec7d6" fill-opacity="0.04"/>
+  <!-- Five-layer stack echo (Gateway→Observer) -->
+  <g transform="translate(1180 160) skewX(-18)" opacity="0.55">
+    <rect x="0" y="0" width="220" height="36" rx="6" fill="#3b82f6" fill-opacity="0.55"/>
+    <rect x="8" y="44" width="220" height="36" rx="6" fill="#a855f7" fill-opacity="0.5"/>
+    <rect x="16" y="88" width="220" height="36" rx="6" fill="#22d3ee" fill-opacity="0.45"/>
+    <rect x="24" y="132" width="220" height="36" rx="6" fill="#eab308" fill-opacity="0.4"/>
+    <rect x="32" y="176" width="220" height="36" rx="6" fill="#f97316" fill-opacity="0.4"/>
+  </g>
+  <path d="M0 740 L480 460 L860 580 L1600 220" fill="none" stroke="url(#stack)" stroke-opacity="0.35" stroke-width="2"/>
 </svg>

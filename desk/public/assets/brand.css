@@ -1,0 +1,35 @@
+/**
+ * Nexus Agent System — design tokens
+ * Source boards: public/brand/nexus-*.jpg
+ *
+ * Agents: Gateway · Core · Vault · Sentinel · Observer
+ * Stack:  Connect · Compute · Data · Secure · Observe
+ */
+:root {
+  /* Agent palette */
+  --nexus-gateway: #3b82f6;
+  --nexus-core: #a855f7;
+  --nexus-vault: #22d3ee;
+  --nexus-sentinel: #eab308;
+  --nexus-observer: #f97316;
+
+  --nexus-gateway-glow: color-mix(in srgb, var(--nexus-gateway) 45%, transparent);
+  --nexus-core-glow: color-mix(in srgb, var(--nexus-core) 45%, transparent);
+  --nexus-vault-glow: color-mix(in srgb, var(--nexus-vault) 40%, transparent);
+  --nexus-sentinel-glow: color-mix(in srgb, var(--nexus-sentinel) 40%, transparent);
+  --nexus-observer-glow: color-mix(in srgb, var(--nexus-observer) 40%, transparent);
+
+  --nexus-ink: #05070d;
+  --nexus-panel: #0a1020;
+  --nexus-line: color-mix(in srgb, var(--nexus-vault) 28%, transparent);
+
+  /* Map into the SPA theme tokens (HSL channels without hsl()) */
+  --primary: 217 91% 60%;          /* Gateway blue */
+  --ring: 217 91% 60%;
+  --secondary: 271 91% 65%;        /* Core purple */
+  --accent: 271 91% 65%;
+  --warning: 45 93% 47%;           /* Sentinel gold */
+  --success: 172 72% 44%;
+  --destructive: 18 96% 56%;       /* Observer orange as alert lean */
+  --border: 190 75% 52% / 0.22;    /* Vault cyan hairline */
+}

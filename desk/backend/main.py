@@ -429,9 +429,15 @@ if (PUBLIC / "assets").exists():
 if (PUBLIC / "images").exists():
     app.mount("/images", StaticFiles(directory=str(PUBLIC / "images")), name="images")
 
+if (PUBLIC / "brand").exists():
+    app.mount("/brand", StaticFiles(directory=str(PUBLIC / "brand")), name="brand")
+
 
 @app.get("/favicon.svg")
 def favicon() -> FileResponse:
+    mark = PUBLIC / "brand" / "nexus-mark.svg"
+    if mark.exists():
+        return FileResponse(mark)
     return FileResponse(PUBLIC / "favicon.svg")
 
 
