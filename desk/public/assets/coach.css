@@ -252,12 +252,18 @@
 
 @media (max-width: 720px) {
   .nexus-coach-root {
-    inset: auto 0.65rem 0.65rem 0.65rem;
+    inset: auto 0.65rem calc(5rem + 0.75rem) 0.65rem;
     width: auto;
   }
 
   .nexus-coach-panel--ring {
-    max-height: min(86vh, 680px);
+    max-height: min(70vh, 560px);
     overflow: auto;
+  }
+}
+
+@media (max-width: 1023px) and (min-width: 640px) {
+  .nexus-coach-root {
+    bottom: calc(6rem + 0.75rem);
   }
 }
