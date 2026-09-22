@@ -1,10 +1,16 @@
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
-watchPatterns = ["backend/**", "public/**", "requirements.txt", "Dockerfile"]
+watchPatterns = ["backend/**", "public/**", "requirements.txt", "Dockerfile", "scorecard.json"]
 
 [deploy]
 healthcheckPath = "/api/health"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 5
+
+# When this folder is used as a Railway template service root:
+# - set service Root Directory to "desk" if the GitHub repo root is the monorepo
+# - or point the template source at this folder as the repo root after a split
+# - enable public HTTP networking
+# - leave KRAKEN_* empty for the paper appetite-test deploy
