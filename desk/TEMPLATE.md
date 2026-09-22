@@ -1,6 +1,6 @@
 # Deploy and Host Nexus Grid Desk with Railway
 
-Nexus Grid Desk is a paper trading operator desk you can deploy in one click. It ships an operator UI plus an in-process paper observer on public Kraken market data. No exchange keys are required to try it. Optional Kraken keys are only needed if you later arm live trading on purpose.
+Nexus Grid Desk is an operator desk for retail traders — status, market, engine, and controls in one Railway service. Start with no exchange keys (safe paper mode); add Kraken keys later only if you want live.
 
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/nexus-grid-desk)
 
