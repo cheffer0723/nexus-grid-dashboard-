@@ -15,17 +15,14 @@ Marketplace / appetite-test overview: [`TEMPLATE.md`](TEMPLATE.md)
 
 No DigitalOcean panel. No second host for paper. No Replit URLs. No OpenAI keys for this template.
 
-## Publish as a Railway template (appetite test)
+## Railway template (appetite test)
 
-Draft already exists: **nexus-grid-desk** (`zK_1Id`).
+Published: **[nexus-grid-desk](https://railway.com/deploy/nexus-grid-desk)**
 
-- Deploy: https://railway.com/deploy/zK_1Id
 - Service icon on `nexus-grid-webapp`: Python Devicon
 - Root directory: `desk`
 - Healthcheck: `/api/health`
-- No required variables baked in (paper = zero secrets)
-
-To finish marketplace listing: open **Templates → nexus-grid-desk**, paste the card image URL from [`TEMPLATE.md`](TEMPLATE.md) if the image field is empty, confirm the overview markdown, then **Publish**.
+- Paper default = zero secrets
 
 Keep copy honest: paper desk / operator UI, not “guaranteed alpha.”
 
