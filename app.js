@@ -40,9 +40,9 @@ function syncApiBaseUi() {
   if (modeSelect) modeSelect.value = DASHBOARD_MODE;
   if (tokenInput) tokenInput.value = localStorage.getItem("NEXUS_CONTROL_TOKEN") || "";
   if (pill) {
-    const className = DASHBOARD_MODE === "remoteControl" || DASHBOARD_MODE === "local" ? "ok" : "warn";
+    const className = DASHBOARD_MODE === "remoteControl" || DASHBOARD_MODE === "local" ? "ok" : DASHBOARD_MODE === "demo" ? "neutral" : "warn";
     pill.className = `pill ${className}`;
-    pill.textContent = `Mode: ${MODE_CONFIG[DASHBOARD_MODE].label}`;
+    pill.textContent = MODE_CONFIG[DASHBOARD_MODE].label;
   }
   if (hint) hint.textContent = API_BASE;
   if (build) build.textContent = `Build: ${localStorage.getItem("NEXUS_BUILD_SHA") || BUILD_COMMIT}`;
@@ -190,7 +190,9 @@ const fmt = {
   },
   pct(value, digits = 2) {
     const n = Number(value);
-    return Number.isFinite(n) ? `${(n * 100).toFixed(digits)}%` : "—";
+    if (!Number.isFinite(n)) return "—";
+    const body = `${Math.abs(n * 100).toFixed(digits)}%`;
+    return n < 0 ? `−${body}` : body;
   },
   price(value) {
     const n = Number(value);
@@ -200,6 +202,72 @@ const fmt = {
     return value === null || value === undefined || value === "" ? fallback : String(value);
   },
 };
+
+function formatWhen(value, withTime = true) {
+  if (value === null || value === undefined || value === "") return "—";
+  const raw = String(value);
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(raw);
+  const date = new Date(dateOnly ? `${raw}T00:00:00Z` : raw);
+  if (Number.isNaN(date.getTime())) return raw;
+  const datePart = new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+  if (!withTime || dateOnly) return datePart;
+  const timePart = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+    hourCycle: "h23",
+  }).format(date);
+  return `${datePart}, ${timePart} UTC`;
+}
+
+function humanize(value) {
+  const text = fmt.text(value).replaceAll("_", " ").toLowerCase();
+  if (text === "—") return text;
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function yesNo(value) {
+  if (value === true) return "Yes";
+  if (value === false) return "No";
+  return fmt.text(value);
+}
+
+function money(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  const body = Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (n < 0) return `−${body}`;
+  if (n > 0) return `+${body}`;
+  return body;
+}
+
+function signed(value, text) {
+  const n = Number(value);
+  const tone = !Number.isFinite(n) || n === 0 ? "" : n > 0 ? "up" : "down";
+  return `<span class="${tone}">${text}</span>`;
+}
+
+function toneForAction(value) {
+  const normalized = String(value ?? "").toUpperCase();
+  if (["LONG", "WIN", "BULL", "GOOD", "EXPANDING"].some((word) => normalized.includes(word))) return "up";
+  if (["SHORT", "LOSS", "BEAR", "BAD", "CONTRACTING"].some((word) => normalized.includes(word))) return "down";
+  return "";
+}
+
+function toneText(value) {
+  return `<span class="${toneForAction(value)}">${escapeHtml(humanize(value))}</span>`;
+}
+
+function shown(value) {
+  if (Array.isArray(value)) return value.length ? value.join(" ") : "";
+  if (value === null || value === undefined || value === "") return "";
+  return String(value);
+}
 
 function escapeHtml(value) {
   return fmt.text(value)
@@ -269,13 +337,14 @@ function renderTable(container, columns, rows, emptyMessage) {
     return;
   }
 
-  const head = columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("");
+  const head = columns.map((column) => `<th class="${column.numeric ? "num" : ""}">${escapeHtml(column.label)}</th>`).join("");
   const body = rows
     .map((row) => {
       const cells = columns
         .map((column) => {
           const raw = typeof column.value === "function" ? column.value(row) : row[column.key];
-          const className = column.className ? column.className(row) : "";
+          const extra = column.className ? column.className(row) : "";
+          const className = [column.numeric ? "num" : "", extra].filter(Boolean).join(" ");
           return `<td class="${className}">${raw ?? "—"}</td>`;
         })
         .join("");
@@ -340,14 +409,18 @@ async function processAction(service, action) {
 function renderProcessCards(payload) {
   const services = payload.services && payload.services.length ? payload.services : DEFAULT_PROCESS_SERVICES;
   const controlMode = DASHBOARD_MODE === "local" || DASHBOARD_MODE === "remoteControl";
-  const lockedNote = controlMode
-    ? ""
-    : DASHBOARD_MODE === "demo"
-      ? "<div class='empty-state'>Demo mode shows the layout with sample data. Choose an API mode and paste your engine address to control a real process.</div>"
-      : "<div class='empty-state'>This mode is read-only. Switch to a control mode on the machine that runs the engine.</div>";
+  const notice = document.getElementById("processNotice");
+  if (notice) {
+    notice.hidden = controlMode;
+    notice.textContent = controlMode
+      ? ""
+      : DASHBOARD_MODE === "demo"
+        ? "Start and stop stay off until you connect an engine that accepts commands."
+        : "This mode only reads state. Switch to a control mode to start or stop services.";
+  }
   setText(
     "processCountStamp",
-    controlMode ? `${services.length} managed services` : DASHBOARD_MODE === "demo" ? "Demo mode" : "Read-only mode",
+    controlMode ? `${services.length} services` : "Not connected",
   );
 
   const container = document.getElementById("processCards");
@@ -361,22 +434,39 @@ function renderProcessCards(payload) {
   container.innerHTML = services
     .map((service) => {
       const status = String(service.status || "stopped").toLowerCase();
-      const statusLabel = status.toUpperCase();
+      const statusLabel = humanize(status);
       const stdoutTail = (service.last_stdout_tail || []).join("\n");
       const stderrTail = (service.last_stderr_tail || []).join("\n");
       const combinedTail = [stdoutTail, stderrTail].filter(Boolean).join(stdoutTail && stderrTail ? "\n" : "");
-      const commandDisplay = commandText(service.command_display || service.launch_command);
-      const scriptPath = fmt.text(service.script_path);
-      const launchCommand = commandText(service.launch_command);
-      const monitoredPaths = (service.monitored_paths || []).map((p) => `<div class="mono">${escapeHtml(fmt.text(p))}</div>`).join("");
+      const launchCommand = shown(service.launch_command);
+      const scriptPath = shown(service.script_path);
+      const commandDisplay = shown(service.command_display);
+      const monitored = service.monitored_paths || [];
+      const meta = [
+        ["PID", shown(service.pid)],
+        ["Started", service.start_time_utc ? formatWhen(service.start_time_utc) : ""],
+        ["Heartbeat", service.last_heartbeat_at_utc ? formatWhen(service.last_heartbeat_at_utc) : ""],
+        ["File update", service.last_file_update_at_utc ? formatWhen(service.last_file_update_at_utc) : ""],
+        ["Last error", shown(service.last_error)],
+        ["Exit code", shown(service.exit_code)],
+      ].filter(([, value]) => value);
       const stopDisabled = !controlMode || (status !== "running" && status !== "starting" && status !== "stopping");
       const startDisabled = !controlMode || status === "running" || status === "starting";
+      const detailParts = [];
+      if (meta.length) {
+        detailParts.push(`<div class="process-meta">${meta.map(([label, value]) => `<div class="kv-item"><span class="kv-label">${escapeHtml(label)}</span><span class="kv-value mono">${escapeHtml(value)}</span></div>`).join("")}</div>`);
+      }
+      if (launchCommand) detailParts.push(`<div class="process-command"><span class="kv-label">Launch command</span><div class="mono">${escapeHtml(launchCommand)}</div></div>`);
+      if (scriptPath) detailParts.push(`<div class="process-command"><span class="kv-label">Script path</span><div class="mono">${escapeHtml(scriptPath)}</div></div>`);
+      if (commandDisplay && commandDisplay !== launchCommand) detailParts.push(`<div class="process-command"><span class="kv-label">Runner command</span><div class="mono">${escapeHtml(commandDisplay)}</div></div>`);
+      if (monitored.length) detailParts.push(`<div class="process-paths"><span class="kv-label">Watched files</span>${monitored.map((p) => `<div class="mono">${escapeHtml(fmt.text(p))}</div>`).join("")}</div>`);
+      if (combinedTail) detailParts.push(`<div class="process-tail"><span class="kv-label">Recent output</span><pre>${escapeHtml(combinedTail)}</pre></div>`);
       return `
-        <div class="process-card status-${escapeHtml(status)}">
-          <div class="process-card-header">
-            <div>
+        <article class="process-card status-${escapeHtml(status)}">
+          <div class="process-row">
+            <div class="process-id">
               <h3>${escapeHtml(service.label || service.key)}</h3>
-              <div class="badge ${processStatusClass(status)}">${escapeHtml(statusLabel)}</div>
+              <span class="process-status">${escapeHtml(statusLabel)}</span>
             </div>
             <div class="process-actions">
               <button type="button" onclick="processAction('${escapeHtml(service.key)}','start')" ${startDisabled ? "disabled" : ""}>Start</button>
@@ -384,23 +474,8 @@ function renderProcessCards(payload) {
               <button type="button" onclick="processAction('${escapeHtml(service.key)}','restart')" ${controlMode ? "" : "disabled"}>Restart</button>
             </div>
           </div>
-
-          <div class="process-meta">
-            <div class="kv-item"><span class="kv-label">PID</span><span class="kv-value mono">${escapeHtml(fmt.text(service.pid))}</span></div>
-            <div class="kv-item"><span class="kv-label">Start time</span><span class="kv-value mono">${escapeHtml(fmt.text(service.start_time_utc))}</span></div>
-            <div class="kv-item"><span class="kv-label">Last heartbeat</span><span class="kv-value mono">${escapeHtml(fmt.text(service.last_heartbeat_at_utc))}</span></div>
-            <div class="kv-item"><span class="kv-label">Last file update</span><span class="kv-value mono">${escapeHtml(fmt.text(service.last_file_update_at_utc))}</span></div>
-            <div class="kv-item"><span class="kv-label">Last error</span><span class="kv-value mono">${escapeHtml(fmt.text(service.last_error))}</span></div>
-            <div class="kv-item"><span class="kv-label">Exit code</span><span class="kv-value mono">${escapeHtml(fmt.text(service.exit_code))}</span></div>
-          </div>
-
-          <div class="process-command"><span class="kv-label">Exact launch command</span><div class="mono">${escapeHtml(launchCommand)}</div></div>
-          <div class="process-command"><span class="kv-label">Exact script path</span><div class="mono">${escapeHtml(scriptPath)}</div></div>
-          <div class="process-command"><span class="kv-label">Command executed inside runner</span><div class="mono">${escapeHtml(commandDisplay)}</div></div>
-          <div class="process-paths"><span class="kv-label">Monitored live files</span>${monitoredPaths || "<div class='empty-state'>No monitored files configured.</div>"}</div>
-          ${lockedNote}
-          <div class="process-tail"><span class="kv-label">Recent output</span><pre>${escapeHtml(combinedTail || "No output yet.")}</pre></div>
-        </div>
+          ${detailParts.length ? `<div class="process-detail">${detailParts.join("")}</div>` : ""}
+        </article>
       `;
     })
     .join("");
@@ -492,12 +567,12 @@ async function loadProcesses() {
 
 function renderSummary(container, rows, emptyMessage) {
   const columns = [
-    { label: "Group", key: "group", value: (row) => `<span class="badge neutral">${escapeHtml(row.group)}</span>` },
-    { label: "Trades", key: "trade_count", value: (row) => fmt.int(row.trade_count) },
-    { label: "Wins", key: "win_count", value: (row) => fmt.int(row.win_count) },
-    { label: "Win rate", key: "win_rate", value: (row) => fmt.pct(row.win_rate) },
-    { label: "Avg PnL", key: "avg_pnl_abs", value: (row) => fmt.num(row.avg_pnl_abs, 6) },
-    { label: "Total PnL", key: "total_pnl_abs", value: (row) => fmt.num(row.total_pnl_abs, 6) },
+    { label: "Group", key: "group", value: (row) => escapeHtml(humanize(row.group)) },
+    { label: "Trades", key: "trade_count", numeric: true, value: (row) => fmt.int(row.trade_count) },
+    { label: "Wins", key: "win_count", numeric: true, value: (row) => fmt.int(row.win_count) },
+    { label: "Win rate", key: "win_rate", numeric: true, value: (row) => fmt.pct(row.win_rate) },
+    { label: "Avg PnL", key: "avg_pnl_abs", numeric: true, value: (row) => signed(row.avg_pnl_abs, money(row.avg_pnl_abs)) },
+    { label: "Total PnL", key: "total_pnl_abs", numeric: true, value: (row) => signed(row.total_pnl_abs, money(row.total_pnl_abs)) },
     { label: "Outcomes", key: "outcome_distribution", value: (row) => escapeHtml(summarizeOutcomes(row.outcome_distribution)) },
   ];
   renderTable(container, columns, rows, emptyMessage);
@@ -519,39 +594,79 @@ function renderEngineState(payload) {
   const currentPrice = signal.current_price ?? signal.currentPrice ?? state.current_price ?? state.currentPrice;
   const mlMatch = signal.ml_vs_deterministic_match;
   const engineMode = system.mode || marketBias || "unknown";
-  const mlState = signal.ml_regime_pred ? `${signal.ml_regime_pred} (${fmt.pct(signal.ml_regime_confidence)})` : "unavailable";
 
-  setBadge("engineModePill", "Engine", engineMode);
-  setBadge("mlPill", "ML", mlMatch === false ? "mismatch" : mlMatch === true ? "match" : shadowEodOnly ? "shadow" : "unknown");
-  setText("freshnessPill", `Updated: ${fmt.text(payload.generated_at_utc)}`);
-  setText("dashboardUpdated", `Last updated: ${fmt.text(payload.generated_at_utc)}`);
-  setText("dashboardSource", `Source: ${fmt.text(state.source_file)}`);
-  setText("engineSourceStamp", `Source: ${fmt.text(state.source_mtime_utc || state.source_file)}`);
+  const mlLabel = mlMatch === false ? "Mismatch" : mlMatch === true ? "Match" : shadowEodOnly ? "Shadow" : "Unknown";
+  const mlTone = mlMatch === false ? "down" : mlMatch === true ? "up" : "";
+  const enginePill = document.getElementById("engineModePill");
+  if (enginePill) {
+    enginePill.className = "status-value";
+    enginePill.textContent = humanize(engineMode);
+  }
+  const mlPill = document.getElementById("mlPill");
+  if (mlPill) {
+    mlPill.className = `status-value ${mlTone}`.trim();
+    mlPill.textContent = mlLabel;
+  }
+  setText("freshnessPill", formatWhen(payload.generated_at_utc));
+  setText("dashboardUpdated", `Updated ${formatWhen(payload.generated_at_utc)}`);
+  setText("dashboardSource", state.source_file ? `Source ${state.source_file}` : "Source —");
+  setText("engineSourceStamp", formatWhen(state.source_mtime_utc || signal.timestamp_utc || payload.generated_at_utc));
 
-  const entries = [
-    { label: "timestamp", value: fmt.text(signal.timestamp_utc ?? signal.timestamp), className: "mono" },
-    { label: "symbol", value: fmt.text(signal.symbol), className: "mono" },
-    { label: "action", value: fmt.text(signal.action), className: actionClass(signal.action) },
-    { label: "market bias", value: fmt.text(marketBias), className: actionClass(marketBias) },
-    { label: "deterministic regime", value: fmt.text(deterministicRegime), className: actionClass(deterministicRegime) },
-    { label: "ML shadow regime", value: fmt.text(signal.ml_regime_pred), className: actionClass(signal.ml_regime_pred) },
-    { label: "ML confidence", value: fmt.pct(signal.ml_regime_confidence), className: "mono" },
-    { label: "ML vs deterministic", value: fmt.text(signal.ml_vs_deterministic_match === null || signal.ml_vs_deterministic_match === undefined ? "unknown" : signal.ml_vs_deterministic_match ? "match" : "mismatch"), className: badgeClass(signal.ml_vs_deterministic_match) },
-    { label: "shadow_eod_only", value: fmt.text(shadowEodOnly), className: badgeClass(shadowEodOnly) },
-    { label: "confidence", value: fmt.num(signal.confidence, 2), className: "mono" },
-    { label: "current price", value: fmt.price(currentPrice), className: "mono" },
-    { label: "confidence adjusted", value: fmt.num(confidenceAdjusted, 2), className: "mono" },
-    { label: "broker connected", value: fmt.text(system.brokerConnected), className: badgeClass(system.brokerConnected) },
-    { label: "engine running", value: fmt.text(system.running), className: badgeClass(system.running) },
-    { label: "mode", value: fmt.text(system.mode), className: actionClass(system.mode) },
-    { label: "risk state", value: fmt.text(system.riskState), className: actionClass(system.riskState) },
-    { label: "loop alive", value: fmt.text(health.loopAlive), className: badgeClass(health.loopAlive) },
-    { label: "emergency stop", value: fmt.text(control.emergencyStopActive), className: badgeClass(control.emergencyStopActive) },
-    { label: "open positions", value: fmt.int(paper.open_position_count), className: "mono" },
-    { label: "realized pnl", value: fmt.num(paper.realized_pnl_abs, 6), className: "mono" },
+  const matchLabel = signal.ml_vs_deterministic_match === null || signal.ml_vs_deterministic_match === undefined
+    ? "Unknown"
+    : signal.ml_vs_deterministic_match ? "Match" : "Mismatch";
+  const groups = [
+    {
+      title: "Tape",
+      rows: [
+        { label: "Symbol", value: fmt.text(signal.symbol), className: "mono" },
+        { label: "Price", value: fmt.price(currentPrice), className: "mono" },
+        { label: "Action", value: humanize(signal.action), className: toneForAction(signal.action) },
+        { label: "Bias", value: humanize(marketBias), className: toneForAction(marketBias) },
+        { label: "Regime", value: humanize(deterministicRegime), className: toneForAction(deterministicRegime) },
+        { label: "Volatility", value: humanize(volatilityState), className: toneForAction(volatilityState) },
+        { label: "As of", value: formatWhen(signal.timestamp_utc ?? signal.timestamp), className: "mono" },
+      ],
+    },
+    {
+      title: "Model",
+      rows: [
+        { label: "ML regime", value: humanize(signal.ml_regime_pred), className: toneForAction(signal.ml_regime_pred) },
+        { label: "ML confidence", value: fmt.pct(signal.ml_regime_confidence), className: "mono" },
+        { label: "Versus tape", value: matchLabel, className: mlMatch === false ? "down" : mlMatch === true ? "up" : "" },
+        { label: "Confidence", value: fmt.num(signal.confidence, 2), className: "mono" },
+        { label: "Adjusted", value: fmt.num(confidenceAdjusted, 2), className: "mono" },
+        { label: "End-of-day shadow", value: yesNo(shadowEodOnly) },
+      ],
+    },
+    {
+      title: "Desk",
+      rows: [
+        { label: "Mode", value: humanize(system.mode) },
+        { label: "Running", value: yesNo(system.running), className: system.running === true ? "up" : "" },
+        { label: "Broker", value: yesNo(system.brokerConnected), className: system.brokerConnected === true ? "up" : system.brokerConnected === false ? "down" : "" },
+        { label: "Risk", value: humanize(system.riskState) },
+        { label: "Loop alive", value: yesNo(health.loopAlive), className: health.loopAlive === true ? "up" : health.loopAlive === false ? "down" : "" },
+        { label: "Emergency stop", value: yesNo(control.emergencyStopActive), className: control.emergencyStopActive === true ? "down" : control.emergencyStopActive === false ? "up" : "" },
+        { label: "Open positions", value: fmt.int(paper.open_position_count), className: "mono" },
+        { label: "Realized PnL", value: money(paper.realized_pnl_abs), className: `mono ${Number(paper.realized_pnl_abs) > 0 ? "up" : Number(paper.realized_pnl_abs) < 0 ? "down" : ""}`.trim() },
+      ],
+    },
   ];
 
-  renderKeyValues(document.getElementById("engineStateGrid"), entries);
+  const board = document.getElementById("engineStateGrid");
+  if (!board) return;
+  board.innerHTML = `<div class="state-board">${groups.map((group) => `
+    <section class="state-group">
+      <h3>${escapeHtml(group.title)}</h3>
+      ${group.rows.map((row) => `
+        <div class="state-row">
+          <span>${escapeHtml(row.label)}</span>
+          <strong class="${row.className || ""}">${escapeHtml(row.value)}</strong>
+        </div>
+      `).join("")}
+    </section>
+  `).join("")}</div>`;
 }
 
 function renderDeploymentIncident(payload) {
@@ -673,41 +788,41 @@ function renderDashboard(payload) {
   const disagreements = payload.disagreements || [];
   const summary = payload.regime_summary || {};
 
-  setText("tradeCountStamp", `${trades.length} recent trades`);
-  setText("disagreementCountStamp", `${disagreements.length} mismatches`);
-  setText("summaryMetaStamp", `${summary.meta?.trade_count ?? 0} closed trades`);
+  setText("tradeCountStamp", trades.length ? `${trades.length} closed` : "None yet");
+  setText("disagreementCountStamp", disagreements.length ? `${disagreements.length} rows` : "None");
+  setText("summaryMetaStamp", `${summary.meta?.trade_count ?? trades.length} closed`);
 
   renderTable(
     document.getElementById("recentTradesWrap"),
     [
-      { label: "Time", key: "timestamp_utc", value: (row) => `<span class="mono">${escapeHtml(fmt.text(row.timestamp_utc))}</span>` },
-      { label: "Symbol", key: "symbol", value: (row) => escapeHtml(fmt.text(row.symbol)) },
-      { label: "Side / Action", key: "side", value: (row) => `<span class="badge ${actionClass(row.action || row.side)}">${escapeHtml(fmt.text(row.side || row.action))}</span>` },
-      { label: "Entry", key: "entry_price", value: (row) => fmt.price(row.entry_price) },
-      { label: "Exit", key: "exit_price", value: (row) => fmt.price(row.exit_price) },
-      { label: "PnL USD", key: "pnl_abs", value: (row) => fmt.num(row.pnl_abs, 6) },
-      { label: "PnL %", key: "pnl_pct", value: (row) => fmt.pct(row.pnl_pct) },
-      { label: "Outcome", key: "outcome_label", value: (row) => `<span class="badge ${actionClass(row.outcome_label)}">${escapeHtml(fmt.text(row.outcome_label))}</span>` },
-      { label: "Deterministic", key: "deterministic_regime", value: (row) => `<span class="badge ${actionClass(row.deterministic_regime)}">${escapeHtml(fmt.text(row.deterministic_regime))}</span>` },
-      { label: "ML regime", key: "ml_regime", value: (row) => row.ml_regime ? `<span class="badge ${actionClass(row.ml_regime)}">${escapeHtml(fmt.text(row.ml_regime))}</span>` : "<span class='badge neutral'>—</span>" },
+      { label: "Time", key: "timestamp_utc", value: (row) => escapeHtml(formatWhen(row.timestamp_utc, false)) },
+      { label: "Symbol", key: "symbol", value: (row) => escapeHtml(fmt.text(row.symbol).replace("-USD", "")) },
+      { label: "Side", key: "side", value: (row) => toneText(row.side || row.action) },
+      { label: "Entry", key: "entry_price", numeric: true, value: (row) => fmt.price(row.entry_price) },
+      { label: "Exit", key: "exit_price", numeric: true, value: (row) => fmt.price(row.exit_price) },
+      { label: "PnL", key: "pnl_abs", numeric: true, value: (row) => signed(row.pnl_abs, money(row.pnl_abs)) },
+      { label: "PnL %", key: "pnl_pct", numeric: true, value: (row) => signed(row.pnl_pct, fmt.pct(row.pnl_pct)) },
+      { label: "Outcome", key: "outcome_label", value: (row) => toneText(row.outcome_label) },
+      { label: "Regime", key: "deterministic_regime", value: (row) => toneText(row.deterministic_regime) },
+      { label: "ML", key: "ml_regime", value: (row) => row.ml_regime ? toneText(row.ml_regime) : "—" },
     ],
     trades,
-    "No closed trades found yet.",
+    "No closed trades yet.",
   );
 
   renderTable(
     document.getElementById("disagreementWrap"),
     [
-      { label: "Time", key: "timestamp_utc", value: (row) => `<span class="mono">${escapeHtml(fmt.text(row.timestamp_utc))}</span>` },
-      { label: "Symbol", key: "symbol", value: (row) => escapeHtml(fmt.text(row.symbol)) },
-      { label: "Deterministic", key: "deterministic_regime", value: (row) => `<span class="badge ${actionClass(row.deterministic_regime)}">${escapeHtml(fmt.text(row.deterministic_regime))}</span>` },
-      { label: "ML regime", key: "ml_regime", value: (row) => `<span class="badge ${actionClass(row.ml_regime)}">${escapeHtml(fmt.text(row.ml_regime))}</span>` },
-      { label: "Confidence", key: "ml_confidence", value: (row) => fmt.pct(row.ml_confidence) },
-      { label: "Mismatch", key: "mismatch_text", value: (row) => `<span class="badge bad">${escapeHtml(fmt.text(row.mismatch_text))}</span>` },
-      { label: "Outcome", key: "outcome_label", value: (row) => `<span class="badge neutral">${escapeHtml(fmt.text(row.outcome_label))}</span>` },
+      { label: "Time", key: "timestamp_utc", value: (row) => escapeHtml(formatWhen(row.timestamp_utc, false)) },
+      { label: "Symbol", key: "symbol", value: (row) => escapeHtml(fmt.text(row.symbol).replace("-USD", "")) },
+      { label: "Tape", key: "deterministic_regime", value: (row) => toneText(row.deterministic_regime) },
+      { label: "Model", key: "ml_regime", value: (row) => toneText(row.ml_regime) },
+      { label: "Confidence", key: "ml_confidence", numeric: true, value: (row) => fmt.pct(row.ml_confidence) },
+      { label: "Note", key: "mismatch_text", value: (row) => escapeHtml(fmt.text(row.mismatch_text)) },
+      { label: "Outcome", key: "outcome_label", value: (row) => toneText(row.outcome_label) },
     ],
     disagreements,
-    "No ML disagreements found in the current log window.",
+    "No disagreements in this window.",
   );
 
   renderSummary(
@@ -727,7 +842,9 @@ function pointsGap(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
   const points = Math.round(n * 100);
-  return `${points > 0 ? "+" : ""}${points} pts`;
+  if (points > 0) return `+${points} pts`;
+  if (points < 0) return `−${Math.abs(points)} pts`;
+  return "0 pts";
 }
 
 function renderScorecard(data) {
@@ -738,47 +855,49 @@ function renderScorecard(data) {
   const coinsAt60 = engines.reduce((sum, engine) => sum + (engine.assets_hit_rate_at_least_60 || 0), 0);
   const upDay = engines[0]?.market_up_day_rate;
 
-  setText("scorecardStamp", data.eval_start && data.eval_end ? `${data.eval_start} → ${data.eval_end}` : "—");
+  setText("scorecardStamp", data.eval_start && data.eval_end ? `${formatWhen(data.eval_start, false)} – ${formatWhen(data.eval_end, false)}` : "—");
   const note = document.getElementById("scorecardNote");
   if (note) {
-    const coins = (data.universe || []).map((symbol) => symbol.replace("-USD", "")).join(", ");
-    note.textContent = coins
-      ? `Same ${assets.length || data.universe.length} coins, same dates, same 0.40% fee. ${coins}.`
+    const count = assets.length || (data.universe || []).length;
+    note.textContent = count
+      ? `${count} coins, one window, 0.40% fee each time a position changes.`
       : "Same coins, same dates, same fee.";
   }
 
   const leads = document.getElementById("scorecardLeads");
   if (leads) {
+    const rulesAt60 = engines.filter((engine) => engine.assets_hit_rate_at_least_60 > 0).map((engine) => engine.name);
+    const gapHtml = (engine) => signed(engine.excess_return, escapeHtml(pointsGap(engine.excess_return)));
     const cards = [
       {
         label: "Closest to buy and hold",
         value: bestGap ? bestGap.name : "—",
-        detail: bestGap ? `${fmt.pct(bestGap.total_return, 0)} return, ${pointsGap(bestGap.excess_return)} versus buy and hold` : "—",
+        detail: bestGap ? `${fmt.pct(bestGap.total_return, 0)} return · ${gapHtml(bestGap)} vs buy and hold` : "—",
       },
       {
-        label: "Highest hit rate",
-        value: bestHit ? `${bestHit.name} ${fmt.pct(bestHit.hit_rate_active, 1)}` : "—",
-        detail: bestHit ? `${bestHit.assets_hit_rate_at_least_60 || 0} coins at 60% or better` : "—",
+        label: "Best hit rate",
+        value: bestHit ? fmt.pct(bestHit.hit_rate_active, 1) : "—",
+        detail: bestHit ? `${escapeHtml(bestHit.name)} · ${bestHit.assets_hit_rate_at_least_60 || 0} coins at 60% or better` : "—",
       },
       {
-        label: "Coins up on a random day",
+        label: "Up-day rate",
         value: fmt.pct(upDay, 1),
-        detail: "Share of days these coins closed higher. A useful hit rate has to beat this.",
+        detail: "Share of days these coins closed higher",
       },
       {
         label: "Coins at 60% or better",
         value: String(coinsAt60),
-        detail: "Counted per rule. One coin can show up under more than one rule.",
+        detail: rulesAt60.length ? escapeHtml(rulesAt60.join(", ")) : "No rule cleared that bar",
       },
     ];
     leads.innerHTML = cards
       .map(
         (card) => `
-          <div class="kv-item">
-            <span class="kv-label">${escapeHtml(card.label)}</span>
-            <span class="kv-value">${escapeHtml(card.value)}</span>
-            <span class="score-detail">${escapeHtml(card.detail)}</span>
-          </div>
+          <article class="stat">
+            <p class="stat-k">${escapeHtml(card.label)}</p>
+            <p class="stat-v">${escapeHtml(card.value)}</p>
+            <p class="stat-d">${card.detail}</p>
+          </article>
         `,
       )
       .join("");
@@ -790,29 +909,29 @@ function renderScorecard(data) {
     const sisyphus = engines.find((engine) => engine.id === "sisyphus");
     const sentences = [
       cerberus
-        ? `Cerberus averaged ${fmt.pct(cerberus.hit_rate_active, 1)} and was at least 60% on ${cerberus.assets_hit_rate_at_least_60 || 0} of these coins.`
+        ? `Cerberus hit ${fmt.pct(cerberus.hit_rate_active, 1)} and reached 60% on ${cerberus.assets_hit_rate_at_least_60 || 0} of these coins.`
         : null,
       sisyphus
-        ? `Sisyphus averaged ${fmt.pct(sisyphus.hit_rate_active, 1)} and cleared 60% on ${sisyphus.assets_hit_rate_at_least_60 || 0} coins, while staying in the market about ${fmt.pct(sisyphus.pct_in_market, 0)} of days.`
+        ? `Sisyphus hit ${fmt.pct(sisyphus.hit_rate_active, 1)} and cleared 60% on ${sisyphus.assets_hit_rate_at_least_60 || 0} coins, while staying in the market about ${fmt.pct(sisyphus.pct_in_market, 0)} of days.`
         : null,
-      "A hit is an in-market day where price moved the same way as the position. The gap column is percentage points versus buy and hold, after the 0.40% fee on position changes.",
-      "These are the archived fixed rules, rerun as published. Research replay only. Rebuild with python3 scripts/build_regime_scorecard.py.",
+      "A hit counts a day in the market when price moved with the position. Gap is percentage points versus buy and hold, after the 0.40% fee.",
+      "Archived rules, rerun as published. This is a replay, not a live track record.",
     ].filter(Boolean);
-    caveat.textContent = sentences.join(" ");
+    caveat.innerHTML = `<ul class="score-facts">${sentences.map((sentence) => `<li>${escapeHtml(sentence)}</li>`).join("")}</ul>`;
   }
 
   renderTable(
     document.getElementById("scorecardEngineWrap"),
     [
       { label: "Rule", key: "name", value: (row) => `<strong>${escapeHtml(row.name)}</strong>` },
-      { label: "Hit rate", key: "hit_rate_active", value: (row) => `<span class="badge ${row.hit_rate_active >= 0.6 ? "ok" : "neutral"}">${fmt.pct(row.hit_rate_active, 1)}</span>` },
-      { label: "Coins ≥ 60%", key: "assets_hit_rate_at_least_60", value: (row) => fmt.int(row.assets_hit_rate_at_least_60) },
-      { label: "Return", key: "total_return", value: (row) => fmt.pct(row.total_return, 0) },
-      { label: "Buy and hold", key: "benchmark_return", value: (row) => fmt.pct(row.benchmark_return, 0) },
-      { label: "Gap", key: "excess_return", value: (row) => `<span class="badge ${row.excess_return > 0 ? "ok" : "bad"}">${escapeHtml(pointsGap(row.excess_return))}</span>` },
-      { label: "Worst drop", key: "max_drawdown", value: (row) => fmt.pct(row.max_drawdown, 0) },
-      { label: "In market", key: "pct_in_market", value: (row) => fmt.pct(row.pct_in_market, 0) },
-      { label: "Avg trades", key: "trades", value: (row) => fmt.int(row.trades) },
+      { label: "Hit rate", key: "hit_rate_active", numeric: true, value: (row) => `<span class="${row.hit_rate_active >= 0.6 ? "up" : ""}">${fmt.pct(row.hit_rate_active, 1)}</span>` },
+      { label: "At 60%", key: "assets_hit_rate_at_least_60", numeric: true, value: (row) => fmt.int(row.assets_hit_rate_at_least_60) },
+      { label: "Return", key: "total_return", numeric: true, value: (row) => signed(row.total_return, fmt.pct(row.total_return, 0)) },
+      { label: "Buy and hold", key: "benchmark_return", numeric: true, value: (row) => signed(row.benchmark_return, fmt.pct(row.benchmark_return, 0)) },
+      { label: "Gap", key: "excess_return", numeric: true, value: (row) => signed(row.excess_return, escapeHtml(pointsGap(row.excess_return))) },
+      { label: "Drawdown", key: "max_drawdown", numeric: true, value: (row) => `<span class="down">${fmt.pct(row.max_drawdown, 0)}</span>` },
+      { label: "In market", key: "pct_in_market", numeric: true, value: (row) => fmt.pct(row.pct_in_market, 0) },
+      { label: "Trades", key: "trades", numeric: true, value: (row) => fmt.int(row.trades) },
     ],
     engines,
     "No scorecard rows yet.",
@@ -825,19 +944,19 @@ function renderScorecard(data) {
   const hitCell = (engineId) => (row) => {
     const metrics = row.byEngine[engineId];
     if (!metrics || metrics.hit_rate_active === null || metrics.hit_rate_active === undefined) return "—";
-    const klass = metrics.hit_rate_active >= 0.6 ? "ok" : "neutral";
-    return `<span class="badge ${klass}">${fmt.pct(metrics.hit_rate_active, 1)}</span> <span class="mono">${fmt.pct(metrics.total_return, 0)}</span>`;
+    const hitTone = metrics.hit_rate_active >= 0.6 ? "up" : "";
+    return `<span class="pair"><span class="${hitTone}">${fmt.pct(metrics.hit_rate_active, 1)}</span><span class="pair-ret">${signed(metrics.total_return, fmt.pct(metrics.total_return, 0))}</span></span>`;
   };
   renderTable(
     document.getElementById("scorecardAssetWrap"),
     [
-      { label: "Coin", key: "symbol", value: (row) => escapeHtml(String(row.symbol).replace("-USD", "")) },
-      { label: "Buy and hold", key: "benchmark_return", value: (row) => fmt.pct(row.benchmark_return, 0) },
-      { label: "Up days", key: "market_up_day_rate", value: (row) => fmt.pct(row.market_up_day_rate, 1) },
-      { label: "Cerberus hit / return", key: "cerberus", value: hitCell("cerberus") },
-      { label: "Orthrus hit / return", key: "orthrus", value: hitCell("orthrus") },
-      { label: "Hydra hit / return", key: "hydra", value: hitCell("hydra") },
-      { label: "Sisyphus hit / return", key: "sisyphus", value: hitCell("sisyphus") },
+      { label: "Coin", key: "symbol", value: (row) => `<strong>${escapeHtml(String(row.symbol).replace("-USD", ""))}</strong>` },
+      { label: "Buy and hold", key: "benchmark_return", numeric: true, value: (row) => signed(row.benchmark_return, fmt.pct(row.benchmark_return, 0)) },
+      { label: "Up days", key: "market_up_day_rate", numeric: true, value: (row) => fmt.pct(row.market_up_day_rate, 1) },
+      { label: "Cerberus", key: "cerberus", numeric: true, value: hitCell("cerberus") },
+      { label: "Orthrus", key: "orthrus", numeric: true, value: hitCell("orthrus") },
+      { label: "Hydra", key: "hydra", numeric: true, value: hitCell("hydra") },
+      { label: "Sisyphus", key: "sisyphus", numeric: true, value: hitCell("sisyphus") },
     ],
     assetRows,
     "No per-coin rows yet.",
@@ -935,7 +1054,7 @@ async function refreshDashboard() {
   const reachabilityText = document.getElementById("backendReachabilityText");
   const lastError = document.getElementById("lastErrorText");
   if (ok && lastError) lastError.textContent = "";
-  if (successText && ok) successText.textContent = DASHBOARD_MODE === "demo" ? `Sample data loaded: ${now.toLocaleString()}` : `Last successful fetch: ${now.toLocaleString()}`;
+  if (successText && ok) successText.textContent = DASHBOARD_MODE === "demo" ? `Sample loaded ${formatWhen(now.toISOString())}` : `Last fetch ${formatWhen(now.toISOString())}`;
   if (reachabilityText) {
     reachabilityText.textContent = DASHBOARD_MODE === "demo"
       ? "Demo sample loaded. No engine API was called."
