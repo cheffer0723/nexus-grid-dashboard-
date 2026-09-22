@@ -3,6 +3,21 @@
 **Paper trading operator desk you can deploy in one click.**  
 No exchange keys required to try it. Optional Kraken keys only if you later arm live.
 
+## Marketplace assets
+
+- Icon (512×512): [`public/template-icon.png`](public/template-icon.png)
+- Raw URL on this branch (paste into Railway template image field):
+
+```text
+https://raw.githubusercontent.com/cheffer0723/nexus-grid-dashboard-/cursor/nexus-desk-template-ee93/desk/public/template-icon.png
+```
+
+After merge to `main`, use:
+
+```text
+https://raw.githubusercontent.com/cheffer0723/nexus-grid-dashboard-/main/desk/public/template-icon.png
+```
+
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new)
 
 > After you publish the template in Railway, replace the button URL with your template link from **Workspace → Templates**.
@@ -52,7 +67,7 @@ When creating the Railway template service:
 - **Source:** that GitHub repo (public)
 - **Root directory:** `desk`
 - **Healthcheck:** `/api/health`
-- **Public HTTP:** enabled
+- **Public HTTP:** enabled (container port `8080`)
 
 ## Local
 
@@ -67,4 +82,4 @@ uvicorn backend.main:app --host 127.0.0.1 --port 8080
 ## Related
 
 - **Critical-Mass-Lab** — research, algorithms, scorecards, later ML (separate Railway project, no buyer keys).
-- Live demo once DNS is attached: `https://nexus.supersym.xyz`
+- Live demo: `https://nexus.supersym.xyz`
