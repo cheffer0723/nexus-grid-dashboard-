@@ -41,21 +41,35 @@
   border-color: var(--nexus-line) !important;
 }
 
-/*
- * Agent-colored nav accents (rail order):
+/* Agent-colored nav accents + real brand marks
  * Observe, Gateway, Core, Logs, Sentinel, Vault, Stack
  */
-.nexus-command-rail nav a:nth-child(1) { --agent: var(--nexus-observer); }
-.nexus-command-rail nav a:nth-child(2) { --agent: var(--nexus-gateway); }
-.nexus-command-rail nav a:nth-child(3) { --agent: var(--nexus-core); }
-.nexus-command-rail nav a:nth-child(4) { --agent: var(--nexus-observer); }
-.nexus-command-rail nav a:nth-child(5) { --agent: var(--nexus-sentinel); }
-.nexus-command-rail nav a:nth-child(6) { --agent: var(--nexus-vault); }
-.nexus-command-rail nav a:nth-child(7) { --agent: var(--nexus-vault); }
+.nexus-command-rail nav a:nth-child(1) { --agent: var(--nexus-observer); --agent-icon: url(/brand/agents/observer.png); }
+.nexus-command-rail nav a:nth-child(2) { --agent: var(--nexus-gateway); --agent-icon: url(/brand/agents/gateway.png); }
+.nexus-command-rail nav a:nth-child(3) { --agent: var(--nexus-core); --agent-icon: url(/brand/agents/core.png); }
+.nexus-command-rail nav a:nth-child(4) { --agent: var(--nexus-observer); --agent-icon: url(/brand/agents/observer.png); }
+.nexus-command-rail nav a:nth-child(5) { --agent: var(--nexus-sentinel); --agent-icon: url(/brand/agents/sentinel.png); }
+.nexus-command-rail nav a:nth-child(6) { --agent: var(--nexus-vault); --agent-icon: url(/brand/agents/vault.png); }
+.nexus-command-rail nav a:nth-child(7) { --agent: var(--nexus-vault); --agent-icon: url(/brand/agents/vault.png); }
 
 .nexus-command-rail nav a {
+  position: relative;
   transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
 }
+
+/* Hide lucide strokes; paint brand agent mark instead */
+.nexus-command-rail nav a > svg {
+  width: 1.85rem !important;
+  height: 1.85rem !important;
+  padding: 0 !important;
+  background: var(--agent-icon) center / contain no-repeat !important;
+  overflow: visible !important;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--agent) 55%, transparent));
+}
+.nexus-command-rail nav a > svg * {
+  opacity: 0 !important;
+}
+
 .nexus-command-rail nav a:hover,
 .nexus-command-rail nav a[aria-current="page"],
 .nexus-command-rail nav a.bg-primary\/10,
