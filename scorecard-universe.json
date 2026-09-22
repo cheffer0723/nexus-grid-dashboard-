@@ -1,0 +1,35 @@
+{
+  "history_start": "2018-01-01",
+  "eval_start": "2023-01-01",
+  "eval_end": "2026-09-20",
+  "fee_per_side": 0.004,
+  "symbols": [
+    "BTC-USD",
+    "ETH-USD",
+    "SOL-USD",
+    "BNB-USD",
+    "XRP-USD",
+    "ADA-USD",
+    "DOGE-USD",
+    "AVAX-USD",
+    "LINK-USD",
+    "LTC-USD"
+  ],
+  "engines": {
+    "cerberus": {
+      "window": 20,
+      "threshold": 0.05,
+      "min_train": 252
+    },
+    "orthrus": {
+      "ma_window": 200
+    },
+    "hydra": {
+      "momentum_lookback": 182
+    },
+    "sisyphus": {
+      "window": 20,
+      "zscore": 2.0
+    }
+  }
+}

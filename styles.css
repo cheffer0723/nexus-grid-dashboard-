@@ -367,6 +367,7 @@ tbody tr:hover {
   .grid,
   .summary-grid,
   .kv-grid,
+  .score-leads,
   .process-grid,
   .process-meta {
     grid-template-columns: 1fr;
@@ -456,4 +457,39 @@ tbody tr:hover {
   color: var(--muted);
   margin-top: 6px;
   line-height: 1.45;
+}
+
+.score-leads {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.score-detail,
+.score-caveat {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  font-weight: 400;
+}
+
+.score-caveat {
+  margin: 0 0 16px;
+}
+
+.score-subhead {
+  margin: 18px 0 8px;
+}
+
+.grid > .card,
+.table-wrap {
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .score-leads,
+  .incident-grid {
+    grid-template-columns: 1fr;
+  }
 }
