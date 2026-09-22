@@ -1,0 +1,89 @@
+/* Desk polish layer — loaded after the compiled SPA CSS. Keep Nexus cyan desk language. */
+:root {
+  --polish-cyan: 184 84% 48%;
+  --polish-ink: 225 45% 3%;
+  --polish-panel: 225 36% 6%;
+}
+
+/* Soften neon glow blowouts */
+.text-shadow-neon,
+[class*="text-shadow-neon"] {
+  text-shadow: 0 0 12px hsl(var(--polish-cyan) / 0.35) !important;
+}
+
+/* Quieter scanline / horizon noise */
+.scanlines {
+  opacity: 0.18 !important;
+}
+.nexus-event-horizon-bg {
+  opacity: 0.55 !important;
+  filter: saturate(0.85) contrast(1.05);
+}
+.nexus-depth-scrim {
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 0%, hsl(var(--polish-cyan) / 0.08), transparent 55%),
+    linear-gradient(180deg, hsl(var(--polish-ink) / 0.55), hsl(var(--polish-ink) / 0.88)) !important;
+}
+
+/* Command rail: brand first, less chrome clutter */
+.nexus-command-rail h1 {
+  letter-spacing: 0.14em !important;
+}
+.nexus-command-rail {
+  backdrop-filter: blur(14px);
+}
+
+/* Sticky warning ribbon: one quiet line, not a billboard */
+header .backdrop-blur-xl.text-warning,
+.sticky .text-warning {
+  letter-spacing: 0.08em !important;
+}
+
+/* Panels read as desk surfaces, not card stacks */
+.nexus-panel,
+.nexus-dashboard .rounded-xl,
+.nexus-dashboard .rounded-2xl {
+  box-shadow: inset 0 1px 0 hsl(184 80% 70% / 0.06) !important;
+}
+
+/* Mission / status density */
+.nexus-dashboard main {
+  letter-spacing: 0.01em;
+}
+
+/* Mobile: keep brand readable */
+@media (max-width: 1023px) {
+  .nexus-command-rail {
+    /* rail is desktop; mobile uses sticky header */
+  }
+  header h1 {
+    font-size: 1.35rem !important;
+    letter-spacing: 0.12em !important;
+  }
+}
+
+/* Reduce purple glow bias on the top strip */
+.border-b.border-primary\/25,
+[class*="border-primary/25"] {
+  border-color: hsl(var(--polish-cyan) / 0.22) !important;
+}
+
+/* Subtle motion: heartbeat pulse on success chips only */
+@keyframes nexus-soft-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.72; }
+}
+.border-success\/30,
+[class*="border-success/30"] {
+  animation: nexus-soft-pulse 2.8s ease-in-out infinite;
+}
+
+/* Entry fade for main stage */
+.nexus-dashboard main,
+.nexus-dashboard [class*="flex-1"] {
+  animation: nexus-stage-in 420ms ease-out both;
+}
+@keyframes nexus-stage-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}

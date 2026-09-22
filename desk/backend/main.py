@@ -426,6 +426,9 @@ def spa_routes() -> FileResponse:
 if (PUBLIC / "assets").exists():
     app.mount("/assets", StaticFiles(directory=str(PUBLIC / "assets")), name="assets")
 
+if (PUBLIC / "images").exists():
+    app.mount("/images", StaticFiles(directory=str(PUBLIC / "images")), name="images")
+
 
 @app.get("/favicon.svg")
 def favicon() -> FileResponse:
