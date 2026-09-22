@@ -5,22 +5,19 @@ No exchange keys required to try it. Optional Kraken keys only if you later arm 
 
 ## Marketplace assets
 
-- Icon (512×512): [`public/template-icon.png`](public/template-icon.png)
-- Raw URL on this branch (paste into Railway template image field):
-
-```text
-https://raw.githubusercontent.com/cheffer0723/nexus-grid-dashboard-/cursor/nexus-desk-template-ee93/desk/public/template-icon.png
-```
-
-After merge to `main`, use:
+- Card image (512×512): [`public/template-icon.png`](public/template-icon.png)
+- Card image URL (paste into Railway template image field if empty):
 
 ```text
 https://raw.githubusercontent.com/cheffer0723/nexus-grid-dashboard-/main/desk/public/template-icon.png
 ```
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new)
+- Service icon: set on Railway as Devicon `python` (`https://devicons.railway.app/i/python.svg`)
+- Template draft: `nexus-grid-desk` → code `zK_1Id`
 
-> After you publish the template in Railway, replace the button URL with your template link from **Workspace → Templates**.
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/zK_1Id)
+
+> Publish from Railway **Templates → nexus-grid-desk** when the marketplace checklist is green. Deploy link above works for private deploys of the draft.
 
 ## What this is
 
