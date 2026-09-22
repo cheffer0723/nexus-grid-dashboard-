@@ -1,0 +1,32 @@
+name: Deploy Nexus Desk to Railway
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "desk/**"
+      - ".github/workflows/deploy-desk-railway.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: desk
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "Set GitHub secret RAILWAY_TOKEN to enable deploy."
+            exit 1
+          fi
+          railway up --service "${{ secrets.RAILWAY_SERVICE_ID }}" --ci
