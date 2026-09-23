@@ -255,7 +255,7 @@
 .nexus-coach-panel--ring {
   width: min(720px, calc(100vw - 2rem));
   max-height: min(78vh, 640px);
-  overflow: visible;
+  overflow: visible !important;
 }
 
 .nexus-coach-ring-host {

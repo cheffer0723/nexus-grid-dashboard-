@@ -71,6 +71,7 @@
 }
 
 .nexus-ring-slat-face {
+  position: relative;
   box-sizing: border-box;
   height: 100%;
   display: flex;
@@ -80,23 +81,23 @@
   border-radius: 0;
   border-top: 1px solid color-mix(in srgb, #fff 18%, transparent);
   border-bottom: 1px solid color-mix(in srgb, #fff 14%, transparent);
+  /* No backdrop-filter here — it fights preserve-3d compositing. */
   background:
     linear-gradient(
       90deg,
-      color-mix(in srgb, #000 42%, transparent) 0%,
-      color-mix(in srgb, #fff calc(var(--slat-shine, 0.7) * 18%), transparent) 48%,
-      color-mix(in srgb, #fff calc(var(--slat-shine, 0.7) * 10%), transparent) 52%,
-      color-mix(in srgb, #000 42%, transparent) 100%
+      color-mix(in srgb, #000 48%, transparent) 0%,
+      color-mix(in srgb, #fff calc(var(--slat-shine, 0.7) * 20%), transparent) 48%,
+      color-mix(in srgb, #fff calc(var(--slat-shine, 0.7) * 12%), transparent) 52%,
+      color-mix(in srgb, #000 48%, transparent) 100%
     ),
     linear-gradient(
       160deg,
-      color-mix(in srgb, #12182a 72%, var(--card-accent, var(--ring-accent))),
-      color-mix(in srgb, #05070d 88%, transparent)
+      color-mix(in srgb, #12182a 78%, var(--card-accent, var(--ring-accent))),
+      color-mix(in srgb, #05070d 92%, transparent)
     );
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, #fff 14%, transparent),
     inset 0 -12px 20px color-mix(in srgb, #000 26%, transparent);
-  backdrop-filter: blur(14px);
 }
 
 .nexus-ring-slat.is-leading .nexus-ring-slat-face {
@@ -128,23 +129,25 @@
   opacity: 0.85;
 }
 
-.nexus-ring-slat-face {
-  position: relative;
-}
-
 .nexus-ring-slat-face > * {
   position: relative;
   z-index: 1;
 }
 
-.nexus-ring-card[data-face="side"] {
-  opacity: 0.78;
+.nexus-ring-card[data-face="side"] .nexus-ring-slat-face {
   filter: brightness(0.86);
 }
 
-.nexus-ring-card[data-face="back"] {
-  opacity: 0.4;
+.nexus-ring-card[data-face="back"] .nexus-ring-slat-face {
   filter: brightness(0.62);
+  opacity: 0.55;
+}
+
+.nexus-ring-card[data-face="side"],
+.nexus-ring-card[data-face="back"] {
+  /* Keep opacity/filter off the 3D parent — they flatten preserve-3d. */
+  opacity: 1;
+  filter: none;
 }
 
 .nexus-ring-eyebrow {

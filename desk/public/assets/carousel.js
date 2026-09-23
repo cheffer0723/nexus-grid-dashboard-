@@ -17,7 +17,7 @@
     const radiusOpt = options.radius;
     const autoSpeed = options.autoSpeed ?? 10;
     const resumeMs = options.resumeMs ?? 2200;
-    const segments = Math.max(5, Math.min(14, options.segments ?? 9));
+    const segments = Math.max(5, Math.min(14, options.segments ?? 6));
 
     host.classList.add("nexus-ring");
     host.style.setProperty("--ring-accent", accent);
@@ -61,8 +61,8 @@
     const R = parseFloat(cs.getPropertyValue("--ring-radius")) || 300;
     const cardW = parseFloat(cs.getPropertyValue("--ring-card-w")) || 240;
     // Bend tighter than the orbit so the cylinder wrap is obvious head-on.
-    const bendR = Math.max(cardW * 0.72, R * 0.58);
-    const halfArc = Math.asin(Math.min(0.9, cardW / 2 / bendR)) * (180 / Math.PI);
+    const bendR = Math.max(cardW * 0.62, R * 0.5);
+    const halfArc = Math.asin(Math.min(0.88, cardW / 2 / bendR)) * (180 / Math.PI);
     const segAngle = (2 * halfArc) / segments;
     const slatW = cardW / segments;
 
