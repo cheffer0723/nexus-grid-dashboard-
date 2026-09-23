@@ -65,7 +65,7 @@
   -webkit-backdrop-filter: blur(calc(6px + var(--face) * 10px));
   transform:
     translate(-50%, -50%)
-    rotateY(calc(var(--i) * (360deg / var(--ring-count, 4))))
+    rotateY(calc(var(--i) * var(--ring-step, 90) * 1deg))
     translateZ(var(--ring-radius))
     scale(calc(0.9 + var(--face) * 0.1));
   filter: brightness(calc(0.42 + var(--face) * 0.68));

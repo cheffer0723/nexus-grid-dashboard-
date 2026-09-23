@@ -11,6 +11,7 @@
     host.classList.add("nexus-ring");
     host.style.setProperty("--ring-accent", accent);
     host.style.setProperty("--ring-count", String(items.length));
+    host.style.setProperty("--ring-step", String(360 / items.length));
 
     host.innerHTML = `
       <div class="nexus-ring-stage" data-ring-stage>
