@@ -3,36 +3,20 @@
     return ((i % n) + n) % n;
   }
 
-  function faceHTML(item, i) {
-    return `
-      ${item.media ? `<img class="nexus-ring-media" src="${item.media}" alt="" />` : ""}
-      <p class="nexus-ring-eyebrow">${item.eyebrow || `Step ${String(i + 1).padStart(2, "0")}`}</p>
-      <h3 class="nexus-ring-title">${item.title || ""}</h3>
-      <div class="nexus-ring-body">${item.body || ""}</div>
-    `;
-  }
-
   function createRing(host, items, options = {}) {
     const accent = options.accent || "var(--nexus-vault, #22d3ee)";
-    const radiusOpt = options.radius;
-    const autoSpeed = options.autoSpeed ?? 10;
-    const resumeMs = options.resumeMs ?? 2200;
-    const segments = Math.max(5, Math.min(14, options.segments ?? 6));
+    const autoSpeed = options.autoSpeed ?? 12;
+    const resumeMs = options.resumeMs ?? 1800;
 
     host.classList.add("nexus-ring");
     host.style.setProperty("--ring-accent", accent);
-    if (radiusOpt != null) {
-      host.style.setProperty(
-        "--ring-radius",
-        typeof radiusOpt === "number" ? `${radiusOpt}px` : String(radiusOpt)
-      );
-    }
+    host.style.setProperty("--ring-count", String(items.length));
 
     host.innerHTML = `
       <div class="nexus-ring-stage" data-ring-stage>
         <div class="nexus-ring-track" data-ring-track></div>
       </div>
-      <p class="nexus-ring-hint">Scroll to spin</p>
+      <p class="nexus-ring-hint">Drag or scroll to spin</p>
       <div class="nexus-ring-nav">
         <button type="button" data-ring-prev aria-label="Previous">‹</button>
         <button type="button" data-ring-next aria-label="Next">›</button>
@@ -45,7 +29,7 @@
     const dots = host.querySelector("[data-ring-dots]");
     const n = items.length;
     const step = 360 / n;
-    let rotation = 0;
+    let turn = 0; // degrees
     let active = 0;
     let dragging = false;
     let lastX = 0;
@@ -57,41 +41,18 @@
     const reduceMotion =
       typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    const cs = getComputedStyle(host);
-    const R = parseFloat(cs.getPropertyValue("--ring-radius")) || 300;
-    const cardW = parseFloat(cs.getPropertyValue("--ring-card-w")) || 240;
-    // Bend tighter than the orbit so the cylinder wrap is obvious head-on.
-    const bendR = Math.max(cardW * 0.62, R * 0.5);
-    const halfArc = Math.asin(Math.min(0.88, cardW / 2 / bendR)) * (180 / Math.PI);
-    const segAngle = (2 * halfArc) / segments;
-    const slatW = cardW / segments;
-
     items.forEach((item, i) => {
       const card = document.createElement("article");
       card.className = "nexus-ring-card";
+      card.style.setProperty("--i", String(i));
       card.style.setProperty("--card-accent", item.accent || accent);
-      // Orbit seat only — curve comes from slats at translateZ(R).
-      card.style.transform = `rotateY(${i * step}deg)`;
-
-      const shell = document.createElement("div");
-      shell.className = "nexus-ring-card-shell";
-      const html = faceHTML(item, i);
-
-      for (let s = 0; s < segments; s++) {
-        const offset = -halfArc + (s + 0.5) * segAngle;
-        const slat = document.createElement("div");
-        slat.className = "nexus-ring-slat";
-        if (s === 0) slat.classList.add("is-leading");
-        if (s === segments - 1) slat.classList.add("is-trailing");
-        slat.style.width = `${slatW + 1.25}px`;
-        slat.style.marginLeft = `${-((slatW + 1.25) / 2)}px`;
-        slat.style.setProperty("--slat-shine", String(1 - Math.abs((s + 0.5) / segments - 0.5) * 1.35));
-        slat.style.transform = `rotateY(${offset}deg) translateZ(var(--ring-radius))`;
-        slat.innerHTML = `<div class="nexus-ring-slat-face" style="width:${cardW}px;transform:translateX(${-s * slatW}px)">${html}</div>`;
-        shell.appendChild(slat);
-      }
-
-      card.appendChild(shell);
+      card.innerHTML = `
+        <span class="nexus-ring-shine" aria-hidden="true"></span>
+        ${item.media ? `<img class="nexus-ring-media" src="${item.media}" alt="" />` : ""}
+        <p class="nexus-ring-eyebrow">${item.eyebrow || `Step ${String(i + 1).padStart(2, "0")}`}</p>
+        <h3 class="nexus-ring-title">${item.title || ""}</h3>
+        <div class="nexus-ring-body">${item.body || ""}</div>
+      `;
       track.appendChild(card);
 
       const dot = document.createElement("button");
@@ -108,14 +69,22 @@
     const cards = [...track.querySelectorAll(".nexus-ring-card")];
     const dotBtns = [...dots.querySelectorAll("button")];
 
+    function faceFor(i) {
+      // 1 = facing camera, 0 = back of ring
+      let ang = ((i * step + turn) % 360 + 360) % 360;
+      if (ang > 180) ang = 360 - ang;
+      return Math.max(0, 1 - ang / 180);
+    }
+
     function render(smooth) {
       track.classList.toggle("is-snapping", !!smooth);
-      track.style.transform = `rotateY(${rotation}deg)`;
-      const normalized = ((-rotation / step) % n + n) % n;
+      track.style.setProperty("--turn", `${turn}deg`);
+      const normalized = ((-turn / step) % n + n) % n;
       active = Math.round(normalized) % n;
       cards.forEach((card, i) => {
-        const dist = Math.min(Math.abs(i - active), n - Math.abs(i - active));
-        card.dataset.face = dist === 0 ? "front" : dist === 1 ? "side" : "back";
+        const face = faceFor(i);
+        card.style.setProperty("--face", face.toFixed(3));
+        card.dataset.face = face > 0.72 ? "front" : face > 0.35 ? "side" : "back";
       });
       dotBtns.forEach((d, i) => d.setAttribute("aria-current", i === active ? "true" : "false"));
     }
@@ -125,14 +94,14 @@
       let delta = target - active;
       if (delta > n / 2) delta -= n;
       if (delta < -n / 2) delta += n;
-      rotation -= delta * step;
+      turn -= delta * step;
       active = target;
       render(true);
     }
 
     function nudge(dir) {
       pauseAuto();
-      rotation -= dir * step;
+      turn -= dir * step;
       render(true);
       scheduleResume();
     }
@@ -160,7 +129,7 @@
       const dt = Math.min(0.05, (ts - lastTs) / 1000);
       lastTs = ts;
       if (!autoPaused && !dragging && !reduceMotion && autoSpeed) {
-        rotation -= autoSpeed * dt;
+        turn -= autoSpeed * dt;
         render(false);
       }
       raf = requestAnimationFrame(tick);
@@ -174,7 +143,7 @@
       (e) => {
         e.preventDefault();
         pauseAuto();
-        rotation -= Math.sign(e.deltaY || e.deltaX) * (step * 0.35);
+        turn -= Math.sign(e.deltaY || e.deltaX) * (step * 0.28);
         render(false);
         scheduleResume();
       },
@@ -191,15 +160,14 @@
       if (!dragging) return;
       const dx = x - lastX;
       lastX = x;
-      rotation += dx * 0.35;
+      turn += dx * 0.32;
       render(false);
     };
     const onUp = () => {
       if (!dragging) return;
       dragging = false;
       stage.classList.remove("is-dragging");
-      const snapped = Math.round(rotation / step) * step;
-      rotation = snapped;
+      turn = Math.round(turn / step) * step;
       render(true);
       scheduleResume();
     };

@@ -135,3 +135,89 @@ header .backdrop-blur-xl.text-warning,
 .nexus-command-rail h1 + svg {
   filter: drop-shadow(0 0 6px var(--nexus-gateway-glow));
 }
+
+/* —— Depth layer (asymmetria-style atmosphere) —— */
+.nexus-atmos {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.nexus-atmos::before,
+.nexus-atmos::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  width: 90vmax;
+  height: 90vmax;
+}
+
+.nexus-atmos::before {
+  top: -45vmax;
+  left: -40vmax;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--nexus-core, #a855f7) 18%, transparent),
+    color-mix(in srgb, var(--nexus-core, #a855f7) 5%, transparent) 40%,
+    transparent 68%
+  );
+  animation: nexus-drift-a 44s ease-in-out infinite alternate;
+}
+
+.nexus-atmos::after {
+  bottom: -50vmax;
+  right: -42vmax;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--nexus-vault, #22d3ee) 16%, transparent),
+    color-mix(in srgb, var(--nexus-vault, #22d3ee) 5%, transparent) 40%,
+    transparent 68%
+  );
+  animation: nexus-drift-b 52s ease-in-out infinite alternate;
+}
+
+@keyframes nexus-drift-a {
+  to {
+    transform: translate(18vmax, 14vmax);
+  }
+}
+
+@keyframes nexus-drift-b {
+  to {
+    transform: translate(-20vmax, -16vmax);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nexus-atmos::before,
+  .nexus-atmos::after {
+    animation: none;
+  }
+}
+
+/* Raised glass panels — inset rim + soft lift */
+.nexus-dashboard .rounded-xl,
+.nexus-dashboard .rounded-2xl,
+.nexus-panel {
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent),
+    0 1px 0 rgb(0 0 0 / 0.35),
+    0 14px 36px rgb(0 0 0 / 0.35) !important;
+  background-color: color-mix(in srgb, var(--nexus-ink, #05070d) 55%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.nexus-dashboard .rounded-xl::after,
+.nexus-dashboard .rounded-2xl::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(180px 100px at 14% 0, rgb(255 255 255 / 0.12), transparent 72%);
+  opacity: 0.7;
+}

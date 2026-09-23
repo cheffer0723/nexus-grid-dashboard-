@@ -1,5 +1,5 @@
 (() => {
-  const STORAGE_KEY = "nexus-desk-coach-v2";
+  const STORAGE_KEY = "nexus-desk-coach-v3";
   const state = (() => {
     try {
       return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") || {};
@@ -139,6 +139,7 @@
       ring = window.NexusRing.create(host, items, {
         accent: name === "agents" ? "var(--nexus-gateway, #3b82f6)" : "var(--nexus-vault, #22d3ee)",
       });
+      host.style.setProperty("--ring-count", String(items.length));
     };
     tryMount(0);
   }
@@ -166,6 +167,12 @@
   });
 
   function boot() {
+    if (!document.querySelector(".nexus-atmos")) {
+      const atmos = document.createElement("div");
+      atmos.className = "nexus-atmos";
+      atmos.setAttribute("aria-hidden", "true");
+      document.body.prepend(atmos);
+    }
     document.body.appendChild(root);
     if (state.completed || state.dismissed) showPanel(false);
     else showPanel(true);
