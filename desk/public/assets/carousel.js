@@ -60,8 +60,9 @@
     const cs = getComputedStyle(host);
     const R = parseFloat(cs.getPropertyValue("--ring-radius")) || 300;
     const cardW = parseFloat(cs.getPropertyValue("--ring-card-w")) || 240;
-    // Angular half-width of the card chord on the imaginary circle.
-    const halfArc = Math.asin(Math.min(0.92, cardW / 2 / R)) * (180 / Math.PI);
+    // Bend tighter than the orbit so the cylinder wrap is obvious head-on.
+    const bendR = Math.max(cardW * 0.72, R * 0.58);
+    const halfArc = Math.asin(Math.min(0.9, cardW / 2 / bendR)) * (180 / Math.PI);
     const segAngle = (2 * halfArc) / segments;
     const slatW = cardW / segments;
 
