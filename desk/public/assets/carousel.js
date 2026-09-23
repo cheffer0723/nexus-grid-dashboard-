@@ -5,7 +5,7 @@
 
   function createRing(host, items, options = {}) {
     const accent = options.accent || "var(--nexus-vault, #22d3ee)";
-    const autoSpeed = options.autoSpeed ?? 12;
+    const autoSpeed = options.autoSpeed ?? 28;
     const resumeMs = options.resumeMs ?? 1800;
 
     host.classList.add("nexus-ring");
