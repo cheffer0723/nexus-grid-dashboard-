@@ -293,6 +293,8 @@ def settings_get() -> dict[str, Any]:
                 "category": "market",
                 "type": "string",
                 "default": "BTC/USD",
+                "description": "Kraken pair the paper observer watches.",
+                "effectiveSource": "process",
                 "restartServices": ["nexus-paper.service"],
             },
             {
@@ -304,7 +306,10 @@ def settings_get() -> dict[str, Any]:
                 "type": "integer",
                 "min": 15,
                 "max": 3600,
+                "unit": "sec",
                 "default": "120",
+                "description": "Seconds between paper observer ticks.",
+                "effectiveSource": "process",
                 "restartServices": ["nexus-paper.service"],
             },
             {
@@ -316,6 +321,9 @@ def settings_get() -> dict[str, Any]:
                 "type": "number",
                 "step": 0.0001,
                 "default": "0.0035",
+                "description": "Paper stop-loss as a fraction of entry (0.0035 = 0.35%).",
+                "effectiveSource": "process",
+                "guard": "risk",
                 "restartServices": ["nexus-paper.service"],
             },
             {
@@ -327,6 +335,9 @@ def settings_get() -> dict[str, Any]:
                 "type": "number",
                 "step": 0.0001,
                 "default": "0.008",
+                "description": "Paper take-profit as a fraction of entry (0.008 = 0.8%).",
+                "effectiveSource": "process",
+                "guard": "risk",
                 "restartServices": ["nexus-paper.service"],
             },
             {
@@ -337,7 +348,11 @@ def settings_get() -> dict[str, Any]:
                 "category": "risk",
                 "type": "number",
                 "step": 1,
+                "unit": "USD",
                 "default": "25",
+                "description": "Notional size for each paper scalp.",
+                "effectiveSource": "process",
+                "guard": "risk",
                 "restartServices": ["nexus-paper.service"],
             },
             {
@@ -347,8 +362,10 @@ def settings_get() -> dict[str, Any]:
                 "group": "safety",
                 "category": "safety",
                 "type": "boolean",
-                "guard": True,
                 "default": "1",
+                "description": "Railway-only. Keep paper on until you deliberately redeploy with live arming.",
+                "effectiveSource": "env_file",
+                "guard": "live",
             },
         ],
         "secretStatuses": [
@@ -427,7 +444,8 @@ async def settings_post(request: Request, x_nexus_control_password: str | None =
         raise HTTPException(status_code=400, detail="No runtime-safe changes to apply")
 
     engine = get_engine()
-    restart = bool(body.get("restartServices"))
+    restart_raw = body.get("restartServices")
+    restart = bool(restart_raw) if not isinstance(restart_raw, list) else len(restart_raw) > 0
     if restart:
         engine.restart()
     else:
