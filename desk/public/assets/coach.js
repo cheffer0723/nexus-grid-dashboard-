@@ -1,5 +1,5 @@
 (() => {
-  const STORAGE_KEY = "nexus-desk-coach-v1";
+  const STORAGE_KEY = "nexus-desk-coach-v2";
   const state = (() => {
     try {
       return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") || {};
@@ -130,10 +130,16 @@
     });
     if (ring) ring.destroy();
     const items = name === "agents" ? AGENTS : STARTER;
-    if (!window.NexusRing) return;
-    ring = window.NexusRing.create(host, items, {
-      accent: name === "agents" ? "var(--nexus-gateway, #3b82f6)" : "var(--nexus-vault, #22d3ee)",
-    });
+    const tryMount = (attempt) => {
+      if (!window.NexusRing) {
+        if (attempt < 20) setTimeout(() => tryMount(attempt + 1), 50);
+        return;
+      }
+      ring = window.NexusRing.create(host, items, {
+        accent: name === "agents" ? "var(--nexus-gateway, #3b82f6)" : "var(--nexus-vault, #22d3ee)",
+      });
+    };
+    tryMount(0);
   }
 
   function openCoach() {
