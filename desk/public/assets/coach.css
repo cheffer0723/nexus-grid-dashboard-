@@ -10,6 +10,11 @@
   pointer-events: none;
 }
 
+/* Ring coach needs horizontal room for the 3D orbit (side cards). */
+.nexus-coach-root.is-open {
+  width: min(720px, calc(100vw - 2rem));
+}
+
 .nexus-coach-root * {
   box-sizing: border-box;
 }
@@ -246,8 +251,17 @@
   color: #f4f7ff;
 }
 
+/* Wide enough that side cards of the 3D orbit stay visible (reference ring). */
+.nexus-coach-panel--ring {
+  width: min(720px, calc(100vw - 2rem));
+  max-height: min(78vh, 640px);
+  overflow: visible;
+}
+
 .nexus-coach-ring-host {
-  min-height: 380px;
+  min-height: 400px;
+  margin: 0 -0.35rem;
+  overflow: visible;
 }
 
 @media (max-width: 720px) {
@@ -257,8 +271,14 @@
   }
 
   .nexus-coach-panel--ring {
+    width: auto;
     max-height: min(70vh, 560px);
     overflow: auto;
+  }
+
+  .nexus-coach-ring-host {
+    min-height: 340px;
+    margin: 0;
   }
 }
 

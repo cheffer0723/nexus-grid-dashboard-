@@ -118,6 +118,7 @@
   function showPanel(open) {
     panel.hidden = !open;
     fab.hidden = open;
+    root.classList.toggle("is-open", open);
     if (open) mountDeck(deck);
   }
 

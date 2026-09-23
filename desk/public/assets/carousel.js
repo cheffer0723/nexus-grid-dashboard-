@@ -6,15 +6,21 @@
   function createRing(host, items, options = {}) {
     const accent = options.accent || "var(--nexus-vault, #22d3ee)";
     const radius = options.radius;
+    // Degrees per second while idle — slow orbit like the glass reference.
+    const autoSpeed = options.autoSpeed ?? 10;
+    const resumeMs = options.resumeMs ?? 2200;
+
     host.classList.add("nexus-ring");
     host.style.setProperty("--ring-accent", accent);
-    if (radius) host.style.setProperty("--ring-radius", `${radius}px`);
+    if (radius != null) {
+      host.style.setProperty("--ring-radius", typeof radius === "number" ? `${radius}px` : String(radius));
+    }
 
     host.innerHTML = `
       <div class="nexus-ring-stage" data-ring-stage>
         <div class="nexus-ring-track" data-ring-track></div>
       </div>
-      <p class="nexus-ring-hint">Scroll or drag to spin</p>
+      <p class="nexus-ring-hint">Scroll to spin</p>
       <div class="nexus-ring-nav">
         <button type="button" data-ring-prev aria-label="Previous">‹</button>
         <button type="button" data-ring-next aria-label="Next">›</button>
@@ -27,10 +33,17 @@
     const dots = host.querySelector("[data-ring-dots]");
     const n = items.length;
     const step = 360 / n;
-    let rotation = 0; // degrees
+    let rotation = 0;
     let active = 0;
     let dragging = false;
     let lastX = 0;
+    let autoPaused = false;
+    let resumeTimer = 0;
+    let raf = 0;
+    let lastTs = 0;
+    let destroyed = false;
+    const reduceMotion =
+      typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     items.forEach((item, i) => {
       const card = document.createElement("article");
@@ -48,16 +61,20 @@
       const dot = document.createElement("button");
       dot.type = "button";
       dot.setAttribute("aria-label", `Go to card ${i + 1}`);
-      dot.addEventListener("click", () => goTo(i));
+      dot.addEventListener("click", () => {
+        pauseAuto();
+        goTo(i);
+        scheduleResume();
+      });
       dots.appendChild(dot);
     });
 
     const cards = [...track.querySelectorAll(".nexus-ring-card")];
     const dotBtns = [...dots.querySelectorAll("button")];
 
-    function render() {
+    function render(smooth) {
+      track.classList.toggle("is-snapping", !!smooth);
       track.style.transform = `rotateY(${rotation}deg)`;
-      // nearest front-facing index
       const normalized = ((-rotation / step) % n + n) % n;
       active = Math.round(normalized) % n;
       cards.forEach((card, i) => {
@@ -69,18 +86,48 @@
 
     function goTo(index) {
       const target = clampIndex(index, n);
-      // shortest path
       let delta = target - active;
       if (delta > n / 2) delta -= n;
       if (delta < -n / 2) delta += n;
       rotation -= delta * step;
       active = target;
-      render();
+      render(true);
     }
 
     function nudge(dir) {
+      pauseAuto();
       rotation -= dir * step;
-      render();
+      render(true);
+      scheduleResume();
+    }
+
+    function pauseAuto() {
+      autoPaused = true;
+      if (resumeTimer) {
+        clearTimeout(resumeTimer);
+        resumeTimer = 0;
+      }
+    }
+
+    function scheduleResume() {
+      if (reduceMotion || destroyed) return;
+      if (resumeTimer) clearTimeout(resumeTimer);
+      resumeTimer = setTimeout(() => {
+        autoPaused = false;
+        lastTs = 0;
+      }, resumeMs);
+    }
+
+    function tick(ts) {
+      if (destroyed) return;
+      if (!lastTs) lastTs = ts;
+      const dt = Math.min(0.05, (ts - lastTs) / 1000);
+      lastTs = ts;
+      if (!autoPaused && !dragging && !reduceMotion && autoSpeed) {
+        rotation -= autoSpeed * dt;
+        render(false);
+      }
+      raf = requestAnimationFrame(tick);
     }
 
     host.querySelector("[data-ring-prev]").addEventListener("click", () => nudge(-1));
@@ -90,8 +137,10 @@
       "wheel",
       (e) => {
         e.preventDefault();
+        pauseAuto();
         rotation -= Math.sign(e.deltaY || e.deltaX) * (step * 0.35);
-        render();
+        render(false);
+        scheduleResume();
       },
       { passive: false }
     );
@@ -99,6 +148,7 @@
     const onDown = (x) => {
       dragging = true;
       lastX = x;
+      pauseAuto();
       stage.classList.add("is-dragging");
     };
     const onMove = (x) => {
@@ -106,16 +156,16 @@
       const dx = x - lastX;
       lastX = x;
       rotation += dx * 0.35;
-      render();
+      render(false);
     };
     const onUp = () => {
       if (!dragging) return;
       dragging = false;
       stage.classList.remove("is-dragging");
-      // snap
       const snapped = Math.round(rotation / step) * step;
       rotation = snapped;
-      render();
+      render(true);
+      scheduleResume();
     };
 
     stage.addEventListener("pointerdown", (e) => {
@@ -126,7 +176,14 @@
     stage.addEventListener("pointerup", onUp);
     stage.addEventListener("pointercancel", onUp);
 
-    render();
+    const onVis = () => {
+      if (document.hidden) pauseAuto();
+      else scheduleResume();
+    };
+    document.addEventListener("visibilitychange", onVis);
+
+    render(false);
+    if (!reduceMotion && autoSpeed) raf = requestAnimationFrame(tick);
 
     return {
       goTo,
@@ -136,6 +193,10 @@
         return active;
       },
       destroy() {
+        destroyed = true;
+        pauseAuto();
+        if (raf) cancelAnimationFrame(raf);
+        document.removeEventListener("visibilitychange", onVis);
         host.innerHTML = "";
       },
     };
