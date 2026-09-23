@@ -253,14 +253,19 @@
 
 /* Wide enough that side cards of the 3D orbit stay visible (reference ring). */
 .nexus-coach-panel--ring {
-  width: min(720px, calc(100vw - 2rem));
-  max-height: min(78vh, 640px);
+  width: min(760px, calc(100vw - 2rem));
+  max-height: min(82vh, 680px);
   overflow: visible !important;
+  background:
+    linear-gradient(165deg, color-mix(in srgb, #0a1430 82%, var(--nexus-gateway, #3b82f6)), #05070d 72%);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 color-mix(in srgb, var(--nexus-vault, #22d3ee) 22%, transparent);
 }
 
 .nexus-coach-ring-host {
-  min-height: 400px;
-  margin: 0 -0.35rem;
+  min-height: 420px;
+  margin: 0.25rem -0.5rem 0.5rem;
   overflow: visible;
 }
 
