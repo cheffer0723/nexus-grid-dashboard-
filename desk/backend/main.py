@@ -138,6 +138,54 @@ def market_snapshot() -> dict[str, Any]:
     }
 
 
+@app.get("/api/market/ohlc")
+def market_ohlc(
+    symbol: str = "BTC/USD",
+    interval: int = 5,
+    limit: int = 120,
+) -> dict[str, Any]:
+    """Public Kraken OHLC series for the Market page chart. No API keys."""
+    allowed = {1, 5, 15, 30, 60, 240, 1440}
+    if interval not in allowed:
+        raise HTTPException(status_code=400, detail=f"interval must be one of {sorted(allowed)}")
+    limit = max(20, min(int(limit), 320))
+    sym = (symbol or "BTC/USD").upper().replace("-", "/")
+    try:
+        rows = kraken_public.ohlc(sym, interval=interval)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"Kraken OHLC failed: {exc}") from exc
+    candles = []
+    for row in rows[-limit:]:
+        # Kraken: [time, open, high, low, close, vwap, volume, count]
+        candles.append(
+            {
+                "t": int(row[0]),
+                "o": float(row[1]),
+                "h": float(row[2]),
+                "l": float(row[3]),
+                "c": float(row[4]),
+                "v": float(row[6]),
+            }
+        )
+    last = candles[-1]["c"] if candles else None
+    first = candles[0]["c"] if candles else None
+    change = (last - first) if last is not None and first is not None else None
+    change_pct = ((change / first) * 100.0) if change is not None and first else None
+    return {
+        "symbol": sym,
+        "interval": interval,
+        "venue": "Kraken",
+        "source": "kraken_rest_public_ohlc",
+        "sourceLabel": "Kraken REST public OHLC",
+        "candles": candles,
+        "last": last,
+        "change": change,
+        "changePercent": change_pct,
+        "updatedAt": datetime.now(timezone.utc).isoformat(),
+        "isMock": False,
+    }
+
+
 @app.get("/api/mission_control")
 def mission_control() -> dict[str, Any]:
     engine = get_engine()
