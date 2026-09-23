@@ -1,4 +1,4 @@
-/* Nexus ring carousel — same-size glass cards, idle orbit + scroll/drag */
+/* Nexus ring carousel — curved glass cards on an imaginary cylinder */
 .nexus-ring {
   --ring-card-w: 240px;
   --ring-card-h: 320px;
@@ -31,7 +31,6 @@
   width: var(--ring-card-w);
   height: var(--ring-card-h);
   transform-style: preserve-3d;
-  /* Idle auto-spin updates every frame — no transition. Snap uses .is-snapping. */
   transition: none;
   will-change: transform;
 }
@@ -43,45 +42,107 @@
 .nexus-ring-card {
   position: absolute;
   inset: 0;
+  width: var(--ring-card-w);
+  height: var(--ring-card-h);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #e8eefc;
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+
+.nexus-ring-card-shell {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+.nexus-ring-slat {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 100%;
+  overflow: hidden;
+  transform-style: preserve-3d;
+  transform-origin: center center;
+  backface-visibility: hidden;
+}
+
+.nexus-ring-slat-face {
+  box-sizing: border-box;
+  height: 100%;
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
   padding: 1.05rem 1.1rem 1.15rem;
-  border-radius: 22px;
-  border: 1px solid color-mix(in srgb, #fff 16%, transparent);
+  border-radius: 0;
+  border-top: 1px solid color-mix(in srgb, #fff 16%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, #fff 16%, transparent);
   background:
-    linear-gradient(160deg, color-mix(in srgb, #12182a 72%, var(--card-accent, var(--ring-accent))), color-mix(in srgb, #05070d 88%, transparent));
-  backdrop-filter: blur(16px);
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, #000 28%, transparent) 0%,
+      color-mix(in srgb, #fff calc(var(--slat-shine, 0.7) * 14%), transparent) 50%,
+      color-mix(in srgb, #000 28%, transparent) 100%
+    ),
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, #12182a 72%, var(--card-accent, var(--ring-accent))),
+      color-mix(in srgb, #05070d 88%, transparent)
+    );
   box-shadow:
-    0 18px 40px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 color-mix(in srgb, #fff 10%, transparent);
-  color: #e8eefc;
-  transform-style: preserve-3d;
-  backface-visibility: hidden;
-  overflow: hidden;
+    inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent),
+    inset 0 -10px 18px color-mix(in srgb, #000 22%, transparent);
+  backdrop-filter: blur(14px);
 }
 
-.nexus-ring-card::before {
+.nexus-ring-slat.is-leading .nexus-ring-slat-face {
+  border-left: 1px solid color-mix(in srgb, #fff 16%, transparent);
+  border-radius: 26px 0 0 26px;
+  box-shadow:
+    inset 10px 0 18px color-mix(in srgb, #000 30%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent);
+}
+
+.nexus-ring-slat.is-trailing .nexus-ring-slat-face {
+  border-right: 1px solid color-mix(in srgb, #fff 16%, transparent);
+  border-radius: 0 26px 26px 0;
+  box-shadow:
+    inset -10px 0 18px color-mix(in srgb, #000 30%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent);
+}
+
+.nexus-ring-slat-face::before {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse 80% 50% at 50% 0%, color-mix(in srgb, var(--card-accent, var(--ring-accent)) 22%, transparent), transparent 60%);
-  opacity: 0.9;
+  background: radial-gradient(
+    ellipse 80% 50% at 50% 0%,
+    color-mix(in srgb, var(--card-accent, var(--ring-accent)) 22%, transparent),
+    transparent 60%
+  );
+  opacity: 0.85;
 }
 
-.nexus-ring-card > * {
+.nexus-ring-slat-face {
+  position: relative;
+}
+
+.nexus-ring-slat-face > * {
   position: relative;
   z-index: 1;
 }
 
 .nexus-ring-card[data-face="side"] {
-  opacity: 0.72;
-  filter: brightness(0.82);
+  opacity: 0.78;
+  filter: brightness(0.86);
 }
 
 .nexus-ring-card[data-face="back"] {
-  opacity: 0.38;
+  opacity: 0.4;
   filter: brightness(0.62);
 }
 
@@ -189,5 +250,11 @@
     --ring-card-h: 290px;
     --ring-radius: 240px;
     height: 340px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nexus-ring-track.is-snapping {
+    transition: none;
   }
 }

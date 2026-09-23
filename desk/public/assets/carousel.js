@@ -3,17 +3,29 @@
     return ((i % n) + n) % n;
   }
 
+  function faceHTML(item, i) {
+    return `
+      ${item.media ? `<img class="nexus-ring-media" src="${item.media}" alt="" />` : ""}
+      <p class="nexus-ring-eyebrow">${item.eyebrow || `Step ${String(i + 1).padStart(2, "0")}`}</p>
+      <h3 class="nexus-ring-title">${item.title || ""}</h3>
+      <div class="nexus-ring-body">${item.body || ""}</div>
+    `;
+  }
+
   function createRing(host, items, options = {}) {
     const accent = options.accent || "var(--nexus-vault, #22d3ee)";
-    const radius = options.radius;
-    // Degrees per second while idle — slow orbit like the glass reference.
+    const radiusOpt = options.radius;
     const autoSpeed = options.autoSpeed ?? 10;
     const resumeMs = options.resumeMs ?? 2200;
+    const segments = Math.max(5, Math.min(14, options.segments ?? 9));
 
     host.classList.add("nexus-ring");
     host.style.setProperty("--ring-accent", accent);
-    if (radius != null) {
-      host.style.setProperty("--ring-radius", typeof radius === "number" ? `${radius}px` : String(radius));
+    if (radiusOpt != null) {
+      host.style.setProperty(
+        "--ring-radius",
+        typeof radiusOpt === "number" ? `${radiusOpt}px` : String(radiusOpt)
+      );
     }
 
     host.innerHTML = `
@@ -45,17 +57,40 @@
     const reduceMotion =
       typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+    const cs = getComputedStyle(host);
+    const R = parseFloat(cs.getPropertyValue("--ring-radius")) || 300;
+    const cardW = parseFloat(cs.getPropertyValue("--ring-card-w")) || 240;
+    // Angular half-width of the card chord on the imaginary circle.
+    const halfArc = Math.asin(Math.min(0.92, cardW / 2 / R)) * (180 / Math.PI);
+    const segAngle = (2 * halfArc) / segments;
+    const slatW = cardW / segments;
+
     items.forEach((item, i) => {
       const card = document.createElement("article");
       card.className = "nexus-ring-card";
       card.style.setProperty("--card-accent", item.accent || accent);
-      card.style.transform = `rotateY(${i * step}deg) translateZ(var(--ring-radius))`;
-      card.innerHTML = `
-        ${item.media ? `<img class="nexus-ring-media" src="${item.media}" alt="" />` : ""}
-        <p class="nexus-ring-eyebrow">${item.eyebrow || `Step ${String(i + 1).padStart(2, "0")}`}</p>
-        <h3 class="nexus-ring-title">${item.title || ""}</h3>
-        <div class="nexus-ring-body">${item.body || ""}</div>
-      `;
+      // Orbit seat only — curve comes from slats at translateZ(R).
+      card.style.transform = `rotateY(${i * step}deg)`;
+
+      const shell = document.createElement("div");
+      shell.className = "nexus-ring-card-shell";
+      const html = faceHTML(item, i);
+
+      for (let s = 0; s < segments; s++) {
+        const offset = -halfArc + (s + 0.5) * segAngle;
+        const slat = document.createElement("div");
+        slat.className = "nexus-ring-slat";
+        if (s === 0) slat.classList.add("is-leading");
+        if (s === segments - 1) slat.classList.add("is-trailing");
+        slat.style.width = `${slatW + 1.25}px`;
+        slat.style.marginLeft = `${-((slatW + 1.25) / 2)}px`;
+        slat.style.setProperty("--slat-shine", String(1 - Math.abs((s + 0.5) / segments - 0.5) * 1.35));
+        slat.style.transform = `rotateY(${offset}deg) translateZ(var(--ring-radius))`;
+        slat.innerHTML = `<div class="nexus-ring-slat-face" style="width:${cardW}px;transform:translateX(${-s * slatW}px)">${html}</div>`;
+        shell.appendChild(slat);
+      }
+
+      card.appendChild(shell);
       track.appendChild(card);
 
       const dot = document.createElement("button");
