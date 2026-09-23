@@ -52,6 +52,31 @@
   border-color: var(--nexus-line) !important;
 }
 
+/* Brand lockup — board N mark + NEXUS wordmark */
+.nexus-brand-lockup {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+}
+.nexus-brand-lockup__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 4.25rem;
+  object-fit: contain;
+  object-position: left center;
+  filter: drop-shadow(0 0 10px var(--nexus-gateway-glow));
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.nexus-brand-lockup__desk {
+  letter-spacing: 0.22em !important;
+  color: color-mix(in srgb, var(--nexus-vault) 72%, white) !important;
+  opacity: 0.85;
+}
+
 /* Keep lucide icons — don't paint every agent mark onto the rail */
 .nexus-command-rail nav a {
   position: relative;
