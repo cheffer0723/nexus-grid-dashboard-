@@ -261,40 +261,203 @@ async def command(
 @app.get("/api/settings")
 def settings_get() -> dict[str, Any]:
     settings = _settings()
+    engine = get_engine()
+    live_active = False
     return {
         "updatedAt": utc_now(),
         "envPath": "Railway variables / .env",
         "confirmationPhrase": "I_ACCEPT_CONFIG_RISK",
-        "restartableServices": ["in-process-paper"],
+        "restartableServices": ["nexus-paper.service", "in-process-paper"],
         "control": {
             "paperService": {
                 "unit": "in-process",
-                "active": get_engine().running,
-                "activeState": "active" if get_engine().running else "inactive",
+                "active": engine.running,
+                "activeState": "active" if engine.running else "inactive",
                 "enabled": True,
                 "enabledState": "enabled",
-            }
+            },
+            "liveService": {
+                "unit": "disabled",
+                "active": live_active,
+                "activeState": "inactive",
+                "enabled": False,
+                "enabledState": "disabled",
+            },
         },
         "options": [
-            {"key": "NEXUS_TRADE_SYMBOL", "label": "Trade Symbol", "value": settings.trade_symbol, "group": "market"},
-            {"key": "NEXUS_LOOP_INTERVAL", "label": "Engine Loop Interval", "value": str(settings.loop_interval), "group": "timing"},
-            {"key": "NEXUS_SCALP_SL_PCT", "label": "Stop Loss %", "value": str(settings.stop_loss_pct), "group": "risk"},
-            {"key": "NEXUS_SCALP_TP_PCT", "label": "Take Profit %", "value": str(settings.take_profit_pct), "group": "risk"},
-            {"key": "NEXUS_SCALP_POSITION_USD", "label": "Paper Position Size", "value": str(settings.position_usd), "group": "risk"},
-            {"key": "NEXUS_PAPER_ONLY", "label": "Paper Only", "value": "1" if settings.paper_only else "0", "group": "safety"},
+            {
+                "key": "NEXUS_TRADE_SYMBOL",
+                "label": "Trade Symbol",
+                "value": settings.trade_symbol,
+                "group": "market",
+                "category": "market",
+                "type": "string",
+                "default": "BTC/USD",
+                "description": "Kraken pair the paper observer watches.",
+                "effectiveSource": "process",
+                "restartServices": ["nexus-paper.service"],
+            },
+            {
+                "key": "NEXUS_LOOP_INTERVAL",
+                "label": "Engine Loop Interval",
+                "value": str(settings.loop_interval),
+                "group": "timing",
+                "category": "timing",
+                "type": "integer",
+                "min": 15,
+                "max": 3600,
+                "unit": "sec",
+                "default": "120",
+                "description": "Seconds between paper observer ticks.",
+                "effectiveSource": "process",
+                "restartServices": ["nexus-paper.service"],
+            },
+            {
+                "key": "NEXUS_SCALP_SL_PCT",
+                "label": "Stop Loss %",
+                "value": str(settings.stop_loss_pct),
+                "group": "risk",
+                "category": "risk",
+                "type": "number",
+                "step": 0.0001,
+                "default": "0.0035",
+                "description": "Paper stop-loss as a fraction of entry (0.0035 = 0.35%).",
+                "effectiveSource": "process",
+                "guard": "risk",
+                "restartServices": ["nexus-paper.service"],
+            },
+            {
+                "key": "NEXUS_SCALP_TP_PCT",
+                "label": "Take Profit %",
+                "value": str(settings.take_profit_pct),
+                "group": "risk",
+                "category": "risk",
+                "type": "number",
+                "step": 0.0001,
+                "default": "0.008",
+                "description": "Paper take-profit as a fraction of entry (0.008 = 0.8%).",
+                "effectiveSource": "process",
+                "guard": "risk",
+                "restartServices": ["nexus-paper.service"],
+            },
+            {
+                "key": "NEXUS_SCALP_POSITION_USD",
+                "label": "Paper Position Size",
+                "value": str(settings.position_usd),
+                "group": "risk",
+                "category": "risk",
+                "type": "number",
+                "step": 1,
+                "unit": "USD",
+                "default": "25",
+                "description": "Notional size for each paper scalp.",
+                "effectiveSource": "process",
+                "guard": "risk",
+                "restartServices": ["nexus-paper.service"],
+            },
+            {
+                "key": "NEXUS_PAPER_ONLY",
+                "label": "Paper Only",
+                "value": "1" if settings.paper_only else "0",
+                "group": "safety",
+                "category": "safety",
+                "type": "boolean",
+                "default": "1",
+                "description": "Railway-only. Keep paper on until you deliberately redeploy with live arming.",
+                "effectiveSource": "env_file",
+                "guard": "live",
+            },
         ],
         "secretStatuses": [
             {"key": "KRAKEN_API_KEY", "configured": bool(settings.kraken_api_key)},
             {"key": "KRAKEN_API_SECRET", "configured": bool(settings.kraken_api_secret)},
         ],
         "readOnlyModeFlags": [
-            {"key": "NEXUS_PAPER_ONLY", "value": "1" if settings.paper_only else "0", "configured": True, "editable": False,
-             "reason": "Change in Railway variables, then redeploy. Paper is the default for buyers."},
-            {"key": "NEXUS_DASHBOARD_ALLOW_LIVE_ARM", "value": "1" if settings.allow_live_arm else "0", "configured": True, "editable": False,
-             "reason": "Live arming is opt-in via Railway variables only."},
+            {
+                "key": "NEXUS_PAPER_ONLY",
+                "value": "1" if settings.paper_only else "0",
+                "configured": True,
+                "editable": False,
+                "reason": "Change in Railway variables, then redeploy. Paper is the default for buyers.",
+            },
+            {
+                "key": "NEXUS_DASHBOARD_ALLOW_LIVE_ARM",
+                "value": "1" if settings.allow_live_arm else "0",
+                "configured": True,
+                "editable": False,
+                "reason": "Live arming is opt-in via Railway variables only.",
+            },
         ],
-        "buyerHint": "Paper needs no keys. Add KRAKEN_API_KEY and KRAKEN_API_SECRET in one Railway variables panel only if you arm live.",
+        "buyerHint": "Paper needs no keys. Add KRAKEN_API_KEY and KRAKEN_API_SECRET in Railway only if you arm live.",
     }
+
+
+_RUNTIME_SETTINGS = {
+    "NEXUS_TRADE_SYMBOL",
+    "NEXUS_LOOP_INTERVAL",
+    "NEXUS_SCALP_SL_PCT",
+    "NEXUS_SCALP_TP_PCT",
+    "NEXUS_SCALP_POSITION_USD",
+}
+
+
+@app.post("/api/settings")
+async def settings_post(request: Request, x_nexus_control_password: str | None = Header(default=None)) -> dict[str, Any]:
+    """Apply runtime paper knobs in-process. Safety flags stay Railway-only."""
+    _check_control_password(x_nexus_control_password)
+    body = await request.json()
+    changes = body.get("changes") or {}
+    if not isinstance(changes, dict) or not changes:
+        raise HTTPException(status_code=400, detail="No changes provided")
+
+    confirmation = str(body.get("confirmation") or "").strip()
+    blocked = []
+    applied = {}
+    for key, raw in changes.items():
+        key = str(key)
+        value = "" if raw is None else str(raw).strip()
+        if key in {"NEXUS_PAPER_ONLY", "NEXUS_DASHBOARD_ALLOW_LIVE_ARM", "KRAKEN_API_KEY", "KRAKEN_API_SECRET"}:
+            blocked.append(key)
+            continue
+        if key not in _RUNTIME_SETTINGS:
+            blocked.append(key)
+            continue
+        if key == "NEXUS_LOOP_INTERVAL":
+            try:
+                value = str(max(15, int(float(value))))
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=f"Invalid {key}") from exc
+        os.environ[key] = value
+        applied[key] = value
+
+    if blocked and confirmation != "I_ACCEPT_CONFIG_RISK" and not applied:
+        raise HTTPException(
+            status_code=400,
+            detail="Those flags are Railway-only on this template. Change them in the Railway variables panel, then redeploy.",
+        )
+    if blocked and not applied:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Blocked (set in Railway, not here): {', '.join(blocked)}",
+        )
+    if not applied:
+        raise HTTPException(status_code=400, detail="No runtime-safe changes to apply")
+
+    engine = get_engine()
+    restart_raw = body.get("restartServices")
+    restart = bool(restart_raw) if not isinstance(restart_raw, list) else len(restart_raw) > 0
+    if restart:
+        engine.restart()
+    else:
+        engine.settings = load_settings()
+
+    payload = settings_get()
+    msg = f"Applied {', '.join(applied)}."
+    if blocked:
+        msg += f" Skipped Railway-only keys: {', '.join(blocked)}."
+    if restart:
+        msg += " Paper observer restarted."
+    return {"ok": True, "message": msg, "settings": payload, "applied": applied, "blocked": blocked}
 
 
 @app.get("/api/instance/workload")
