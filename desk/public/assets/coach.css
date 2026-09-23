@@ -1,18 +1,12 @@
-/* First-run coach — plain language for new traders */
+/* First-run coach — plain steps, no ring */
 .nexus-coach-root {
   position: fixed;
   z-index: 120;
-  /* Bottom-left of the main stage — keeps clear of regime scorecard (bottom-right) */
   inset: auto auto 1rem 1rem;
   width: min(400px, calc(100vw - 2rem));
   font-family: Rajdhani, system-ui, sans-serif;
   color: #e8eefc;
   pointer-events: none;
-}
-
-/* Ring coach needs horizontal room for the 3D orbit (side cards). */
-.nexus-coach-root.is-open {
-  width: min(720px, calc(100vw - 2rem));
 }
 
 .nexus-coach-root * {
@@ -99,11 +93,25 @@
   line-height: 1;
 }
 
+.nexus-coach-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
 .nexus-coach-step {
   padding: 0.75rem 0.8rem;
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, #fff 10%, transparent);
   background: color-mix(in srgb, #05070d 55%, transparent);
+}
+
+.nexus-coach-step-num {
+  margin: 0 0 0.25rem;
+  font: 700 0.65rem/1 "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--nexus-vault, #22d3ee);
 }
 
 .nexus-coach-step h3 {
@@ -113,83 +121,36 @@
   text-transform: uppercase;
 }
 
-.nexus-coach-step p,
-.nexus-coach-step li {
+.nexus-coach-step p {
   margin: 0;
   font: 500 0.92rem/1.45 Rajdhani, system-ui, sans-serif;
   color: #c5d0ea;
 }
 
-.nexus-coach-step ol,
-.nexus-coach-step ul {
-  margin: 0.35rem 0 0;
-  padding-left: 1.15rem;
-}
-
 .nexus-coach-step a {
-  color: var(--nexus-gateway, #93c5fd);
-  text-underline-offset: 2px;
+  color: #93c5fd;
 }
 
-.nexus-coach-agents {
-  display: grid;
-  gap: 0.4rem;
-  margin: 0.45rem 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.nexus-coach-agents li {
-  display: grid;
-  grid-template-columns: 0.55rem 5.5rem 1fr;
-  gap: 0.55rem;
-  align-items: start;
-  font: 500 0.86rem/1.35 Rajdhani, system-ui, sans-serif;
-  color: #c5d0ea;
-}
-
-.nexus-coach-dot {
-  width: 0.55rem;
-  height: 0.55rem;
-  margin-top: 0.35rem;
-  border-radius: 999px;
-  background: var(--c);
-  box-shadow: 0 0 8px var(--c);
-}
-
-.nexus-coach-agents strong {
-  color: #f4f7ff;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  font-weight: 800;
-}
-
-.nexus-coach-warn {
-  border-color: color-mix(in srgb, var(--nexus-sentinel, #eab308) 45%, transparent);
-  background: color-mix(in srgb, #1a1405 70%, var(--nexus-sentinel, #eab308));
-}
-
-.nexus-coach-warn h3 {
-  color: var(--nexus-sentinel, #facc15);
+.nexus-coach-step code {
+  font: 600 0.8em/1.3 "JetBrains Mono", ui-monospace, monospace;
+  color: #e8eefc;
 }
 
 .nexus-coach-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
 }
 
 .nexus-coach-actions button {
-  flex: 1 1 auto;
-  min-height: 2.4rem;
-  padding: 0.55rem 0.85rem;
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, #fff 16%, transparent);
-  background: transparent;
+  background: color-mix(in srgb, #05070d 50%, transparent);
   color: #e8eefc;
-  font: 700 0.8rem/1 Rajdhani, system-ui, sans-serif;
-  letter-spacing: 0.1em;
+  font: 700 0.78rem/1.2 Rajdhani, system-ui, sans-serif;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  padding: 0.7rem 0.55rem;
   cursor: pointer;
 }
 
@@ -198,87 +159,10 @@
   background: color-mix(in srgb, var(--nexus-gateway, #3b82f6) 28%, #05070d);
 }
 
-@media (min-width: 1024px) {
-  .nexus-coach-root {
-    /* Sit in the main canvas, past the command rail */
-    left: 19rem;
-    right: auto;
-    bottom: 1.25rem;
-  }
-}
-
-/* Ring / carousel coach stage */
-.nexus-coach-root--ring {
-  width: min(760px, calc(100vw - 2rem));
-}
-
-@media (min-width: 1024px) {
-  .nexus-coach-root--ring {
-    width: min(820px, calc(100vw - 21rem));
-  }
-}
-
-.nexus-coach-panel--ring {
-  max-height: min(88vh, 720px);
-  overflow: hidden;
-  gap: 0.7rem;
-}
-
-.nexus-coach-tabs {
-  display: inline-flex;
-  gap: 0.35rem;
-  padding: 0.25rem;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, #fff 12%, transparent);
-  background: color-mix(in srgb, #05070d 45%, transparent);
-  width: fit-content;
-}
-
-.nexus-coach-tabs button {
-  border: 0;
-  border-radius: 999px;
-  padding: 0.45rem 0.9rem;
-  background: transparent;
-  color: #9eb0d0;
-  font: 700 0.75rem/1 Rajdhani, system-ui, sans-serif;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.nexus-coach-tabs button.is-active {
-  background: color-mix(in srgb, var(--nexus-gateway, #3b82f6) 28%, #05070d);
-  color: #f4f7ff;
-}
-
-/* Wide enough that side cards of the 3D orbit stay visible (reference ring). */
-.nexus-coach-panel--ring {
-  width: min(720px, calc(100vw - 2rem));
-  max-height: min(78vh, 640px);
-  overflow: visible !important;
-}
-
-.nexus-coach-ring-host {
-  min-height: 400px;
-  margin: 0 -0.35rem;
-  overflow: visible;
-}
-
 @media (max-width: 720px) {
   .nexus-coach-root {
     inset: auto 0.65rem calc(5rem + 0.75rem) 0.65rem;
     width: auto;
-  }
-
-  .nexus-coach-panel--ring {
-    width: auto;
-    max-height: min(70vh, 560px);
-    overflow: auto;
-  }
-
-  .nexus-coach-ring-host {
-    min-height: 340px;
-    margin: 0;
   }
 }
 
