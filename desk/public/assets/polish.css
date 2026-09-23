@@ -77,6 +77,21 @@
   opacity: 0.85;
 }
 
+/* Mobile sticky header — rail is lg-only, so brand lives here */
+.nexus-brand-lockup--mobile {
+  max-width: min(100%, 14.5rem);
+  padding-right: 0.5rem;
+}
+.nexus-brand-lockup--mobile .nexus-brand-lockup__img {
+  max-height: 2.65rem;
+  filter: drop-shadow(0 0 8px var(--nexus-gateway-glow));
+}
+.nexus-brand-lockup--mobile .nexus-brand-lockup__desk {
+  font-size: 9px !important;
+  line-height: 1.1;
+  margin-top: 0.15rem !important;
+}
+
 /* Keep lucide icons — don't paint every agent mark onto the rail */
 .nexus-command-rail nav a {
   position: relative;
