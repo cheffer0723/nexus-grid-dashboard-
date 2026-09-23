@@ -18,14 +18,14 @@
     {
       eyebrow: "Step 02",
       accent: "var(--nexus-observer, #f97316)",
-      title: "Watch Observe tick",
-      body: "Stay on <strong>Observe</strong>. Look for heartbeat / engine status updating. If it ticks, your desk is running — you’re in.",
+      title: "Watch Status tick",
+      body: "Stay on <strong>Status</strong>. Look for heartbeat / engine status updating. If it ticks, your desk is running — you’re in.",
     },
     {
       eyebrow: "Step 03",
       accent: "var(--nexus-gateway, #3b82f6)",
       title: "Learn the left rail",
-      body: "Gateway = market feed. Core = engine. Sentinel = safety lock. Vault = settings. Observer = what’s happening. Spin the Agents deck for the marks.",
+      body: "Market = prices. Engine = paper loop. Control = arming. Settings = knobs. Status / Logs = what’s happening.",
     },
     {
       eyebrow: "Step 04",
