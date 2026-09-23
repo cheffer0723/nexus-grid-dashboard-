@@ -67,8 +67,32 @@
     if (!document.getElementById("nexus-scorecard-panel")) {
       const panel = document.createElement("section");
       panel.id = "nexus-scorecard-panel";
-      panel.innerHTML = `<div class="nexus-scorecard-heading"><span>Regime scorecard</span><span>Replay</span></div><div class="nexus-scorecard-body">Loading…</div><div class="nexus-scorecard-note">Research replay from Critical-Mass-Lab. This does not trade.</div>`;
+      panel.innerHTML = `<div class="nexus-scorecard-heading"><span>Regime scorecard</span><button type="button" class="nexus-scorecard-toggle" data-scorecard-toggle aria-expanded="true">Hide</button></div><div class="nexus-scorecard-body">Loading…</div><div class="nexus-scorecard-note">Research replay from Critical-Mass-Lab. This does not trade.</div>`;
       document.body.appendChild(panel);
+      panel.querySelector("[data-scorecard-toggle]")?.addEventListener("click", () => {
+        const collapsed = panel.classList.toggle("is-collapsed");
+        const btn = panel.querySelector("[data-scorecard-toggle]");
+        if (btn) {
+          btn.textContent = collapsed ? "Show" : "Hide";
+          btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        }
+        try {
+          localStorage.setItem("nexus-scorecard-collapsed", collapsed ? "1" : "0");
+        } catch {}
+      });
+      try {
+        const mobile = window.matchMedia("(max-width: 1023px)").matches;
+        const stored = localStorage.getItem("nexus-scorecard-collapsed");
+        // On mobile, default collapsed so the toolbar stays usable until they open it
+        if (stored === "1" || (stored == null && mobile)) {
+          panel.classList.add("is-collapsed");
+          const btn = panel.querySelector("[data-scorecard-toggle]");
+          if (btn) {
+            btn.textContent = "Show";
+            btn.setAttribute("aria-expanded", "false");
+          }
+        }
+      } catch {}
     }
     refreshScorecard();
   }
@@ -111,16 +135,40 @@
 
   const style = document.createElement("style");
   style.textContent = `
-    #nexus-control-auth-panel,#nexus-scorecard-panel{position:fixed;z-index:9999;width:min(22rem,calc(100vw - 2rem));padding:.85rem;border:1px solid rgba(0,229,255,.35);border-radius:1rem;background:rgba(4,8,20,.94);color:#eaf8ff;font:12px ui-monospace,Menlo,Consolas,monospace;backdrop-filter:blur(14px)}
+    #nexus-control-auth-panel,#nexus-scorecard-panel{position:fixed;z-index:45;width:min(22rem,calc(100vw - 2rem));padding:.85rem;border:1px solid rgba(0,229,255,.35);border-radius:1rem;background:rgba(4,8,20,.94);color:#eaf8ff;font:12px ui-monospace,Menlo,Consolas,monospace;backdrop-filter:blur(14px)}
     #nexus-control-auth-panel{right:1rem;bottom:5.6rem}
-    #nexus-scorecard-panel{right:1rem;bottom:1rem;z-index:9997}
-    .nexus-control-auth-title,.nexus-scorecard-heading{display:flex;justify-content:space-between;color:#36e7ff;font-weight:800;letter-spacing:.14em;text-transform:uppercase;margin-bottom:.5rem}
+    #nexus-scorecard-panel{right:1rem;bottom:1rem;z-index:40}
+    .nexus-control-auth-title,.nexus-scorecard-heading{display:flex;justify-content:space-between;align-items:center;gap:.5rem;color:#36e7ff;font-weight:800;letter-spacing:.14em;text-transform:uppercase;margin-bottom:.5rem}
     .nexus-control-auth-row{display:grid;grid-template-columns:1fr auto auto;gap:.45rem}
     #nexus-control-auth-input{min-width:0;height:2.4rem;border:1px solid rgba(145,92,255,.45);border-radius:.65rem;background:rgba(0,0,0,.38);color:#fff;padding:0 .7rem}
     #nexus-control-auth-save,#nexus-control-auth-clear{height:2.4rem;border:1px solid rgba(54,231,255,.42);border-radius:.65rem;background:rgba(54,231,255,.08);color:#36e7ff;padding:0 .7rem;font:inherit;font-weight:800;cursor:pointer}
     .nexus-scorecard-row{display:grid;grid-template-columns:1fr auto auto;gap:.8rem;margin-top:.35rem}
     .nexus-scorecard-row .up{color:#49e6c1}.nexus-scorecard-row .down{color:#ef70c5}
     .nexus-scorecard-note,.nexus-control-auth-status{margin-top:.45rem;color:rgba(234,248,255,.65);line-height:1.4}
+    .nexus-scorecard-toggle{border:1px solid rgba(54,231,255,.35);border-radius:.55rem;background:rgba(54,231,255,.08);color:#36e7ff;font:inherit;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:.2rem .45rem;cursor:pointer}
+    #nexus-scorecard-panel.is-collapsed .nexus-scorecard-body,
+    #nexus-scorecard-panel.is-collapsed .nexus-scorecard-note{display:none}
+    #nexus-scorecard-panel.is-collapsed{padding:.65rem .85rem}
+    /* Mobile bottom toolbar is h-20 / sm:h-24 at z-50 — keep scorecard above it, under chrome */
+    @media (max-width:1023px){
+      #nexus-scorecard-panel{
+        right:.65rem;left:.65rem;width:auto;
+        bottom:calc(5rem + .75rem);
+        max-height:min(34vh,14.5rem);
+        overflow:auto;
+        z-index:40;
+      }
+      #nexus-control-auth-panel{
+        bottom:calc(5rem + .75rem);
+        z-index:41;
+      }
+    }
+    @media (max-width:1023px) and (min-width:640px){
+      #nexus-scorecard-panel,#nexus-control-auth-panel{bottom:calc(6rem + .75rem)}
+    }
+    @media (min-width:1024px){
+      #nexus-scorecard-panel{bottom:1rem;left:auto;width:min(22rem,calc(100vw - 2rem))}
+    }
   `;
 
   function boot() {
