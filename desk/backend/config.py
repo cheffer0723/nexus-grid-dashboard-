@@ -52,11 +52,17 @@ class Settings:
     allow_live_arm: bool
     control_password: str
     scorecard_url: str
+    jev_api_key: str
+    jev_model: str
     port: int
 
     @property
     def live_keys_configured(self) -> bool:
         return bool(self.kraken_api_key and self.kraken_api_secret)
+
+    @property
+    def jev_configured(self) -> bool:
+        return bool(self.jev_api_key)
 
     @property
     def can_arm_live(self) -> bool:
@@ -68,6 +74,8 @@ class Settings:
 
 
 def load_settings() -> Settings:
+    # Official TypeSafe env name, plus Nexus alias.
+    jev_key = _env("TYPESAFE_API_KEY") or _env("NEXUS_JEV_API_KEY")
     return Settings(
         product_name=_env("NEXUS_PRODUCT_NAME", "Nexus Desk"),
         paper_only=_env_bool("NEXUS_PAPER_ONLY", True),
@@ -83,5 +91,7 @@ def load_settings() -> Settings:
         allow_live_arm=_env_bool("NEXUS_DASHBOARD_ALLOW_LIVE_ARM", False),
         control_password=_env("NEXUS_CONTROL_PASSWORD"),
         scorecard_url=_env("NEXUS_SCORECARD_URL"),
+        jev_api_key=jev_key,
+        jev_model=_env("NEXUS_JEV_MODEL", "jev-latest") or "jev-latest",
         port=_env_int("PORT", 8080),
     )
