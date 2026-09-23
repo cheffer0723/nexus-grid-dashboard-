@@ -7,6 +7,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+import threading
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
@@ -14,12 +15,18 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import load_settings
 from . import kraken_public
+from . import jev as jev_client
 from .paper_engine import get_engine, utc_now
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = ROOT / "public"
 
 app = FastAPI(title="Nexus Desk", version="1.0.0")
+
+# Paper research only — last Jev compares (never drives live).
+_JEV_HISTORY: list[dict[str, Any]] = []
+_JEV_HISTORY_LOCK = threading.Lock()
+_JEV_HISTORY_MAX = 12
 
 
 def _settings():
@@ -112,6 +119,141 @@ def core_summary() -> dict[str, Any]:
         "recommendation": recommendation,
         "isMock": False,
     }
+
+
+def _desk_signal_payload() -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    settings = _settings()
+    engine = get_engine()
+    signal = dict(engine.latest_signal or {})
+    symbol = signal.get("symbol") or settings.trade_symbol
+    try:
+        market = kraken_public.ticker(symbol)
+    except Exception:  # noqa: BLE001
+        market = {
+            "symbol": symbol,
+            "price": signal.get("current_price"),
+            "name": symbol,
+            "market": symbol,
+            "venue": "Kraken",
+        }
+    desk = {
+        "symbol": symbol,
+        "action": signal.get("action") or "WAIT",
+        "confidence": signal.get("confidence"),
+        "reason": signal.get("execution_reason"),
+        "ema9": signal.get("ema9"),
+        "ema21": signal.get("ema21"),
+        "rsi14": signal.get("rsi14"),
+        "vwap": signal.get("vwap"),
+        "price": market.get("price") if market.get("price") is not None else signal.get("current_price"),
+        "cycle": engine.cycle,
+        "heartbeat": engine.last_heartbeat,
+        "strategy": signal.get("strategy_version") or "desk_template_scalper_v1",
+    }
+    return settings, desk, {**signal, "symbol": symbol}, market
+
+
+@app.get("/api/jev/status")
+def jev_status() -> dict[str, Any]:
+    settings = _settings()
+    return {
+        "configured": settings.jev_configured,
+        "model": settings.jev_model,
+        "paperOnly": True,
+        "armsLive": False,
+        "disclaimer": (
+            "Optional research compare. Jev never arms live on this desk. "
+            "Paper mode stays zero-secret until you set TYPESAFE_API_KEY."
+        ),
+        "setup": {
+            "env": ["TYPESAFE_API_KEY or NEXUS_JEV_API_KEY", "NEXUS_JEV_MODEL=jev-latest"],
+            "docs": "https://www.jevtypesafeai.com/how-to-use",
+        },
+    }
+
+
+@app.get("/api/jev/compare")
+def jev_compare(run: int = 0) -> dict[str, Any]:
+    """Compare desk paper signal vs optional Jev System One call. Never executes."""
+    settings, desk, signal, market = _desk_signal_payload()
+    with _JEV_HISTORY_LOCK:
+        history = list(_JEV_HISTORY)
+
+    base = {
+        "paperOnly": True,
+        "armsLive": False,
+        "configured": settings.jev_configured,
+        "model": settings.jev_model,
+        "desk": desk,
+        "market": {
+            "symbol": market.get("symbol"),
+            "price": market.get("price"),
+            "changePercent24h": market.get("changePercent24h"),
+            "venue": market.get("venue") or "Kraken",
+        },
+        "jev": None,
+        "agreement": "n/a",
+        "history": history,
+        "disclaimer": (
+            "Paper research only. This endpoint never places orders and never "
+            "flips live-arm flags."
+        ),
+        "updatedAt": utc_now(),
+    }
+
+    if not settings.jev_configured:
+        base["status"] = "unconfigured"
+        base["message"] = (
+            "Set TYPESAFE_API_KEY (or NEXUS_JEV_API_KEY) on the service to ask Jev. "
+            "Until then the desk signal still runs on public Kraken data alone."
+        )
+        return base
+
+    if not run:
+        base["status"] = "ready"
+        base["message"] = "Configured. Pass run=1 (or use Ask Jev) to spend one evaluation."
+        return base
+
+    try:
+        state = jev_client.build_state(signal, market)
+        result = jev_client.evaluate(
+            api_key=settings.jev_api_key,
+            state=state,
+            model=settings.jev_model,
+        )
+    except Exception as exc:  # noqa: BLE001
+        base["status"] = "error"
+        base["message"] = str(exc)
+        return base
+
+    agree = jev_client.agreement(str(desk.get("action") or "WAIT"), str(result.get("direction") or "flat"))
+    row = {
+        "at": utc_now(),
+        "deskAction": desk.get("action"),
+        "jevDirection": result.get("direction"),
+        "agreement": agree,
+        "conviction": result.get("conviction"),
+        "takeTrade": result.get("takeTrade"),
+        "latencyMs": result.get("latencyMs"),
+        "symbol": desk.get("symbol"),
+        "price": desk.get("price"),
+    }
+    with _JEV_HISTORY_LOCK:
+        _JEV_HISTORY.insert(0, row)
+        del _JEV_HISTORY[_JEV_HISTORY_MAX:]
+        history = list(_JEV_HISTORY)
+
+    base.update(
+        {
+            "status": "ok",
+            "message": "Jev answered. Compare only — desk still owns paper execution.",
+            "jev": result,
+            "agreement": agree,
+            "history": history,
+            "statePreview": state,
+        }
+    )
+    return base
 
 
 @app.get("/api/market/snapshot")

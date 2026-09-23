@@ -1,0 +1,204 @@
+/* Jev vs desk signal — Engine (/core) paper research panel */
+
+.nexus-jev-panel {
+  margin: 0 0 1.25rem;
+  padding: 1rem 1.1rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--nexus-core, #a855f7) 34%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--nexus-ink, #05070d) 74%, transparent);
+  backdrop-filter: blur(14px);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.05),
+    0 12px 32px rgb(0 0 0 / 0.28);
+}
+
+.nexus-jev-panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.nexus-jev-panel__kicker {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--nexus-core, #a855f7) 88%, white);
+}
+
+.nexus-jev-panel__title {
+  margin: 0.2rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #e8eefc;
+}
+
+.nexus-jev-panel__ask {
+  appearance: none;
+  border: 1px solid color-mix(in srgb, var(--nexus-core, #a855f7) 55%, transparent);
+  background: color-mix(in srgb, var(--nexus-core, #a855f7) 18%, transparent);
+  color: #f3e8ff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 0.45rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.nexus-jev-panel__ask:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--nexus-core, #a855f7) 80%, transparent);
+  background: color-mix(in srgb, var(--nexus-core, #a855f7) 28%, transparent);
+}
+
+.nexus-jev-panel__ask:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.nexus-jev-panel__note {
+  margin: 0 0 0.85rem;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+
+.nexus-jev-panel__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+}
+
+.nexus-jev-card {
+  border: 1px solid color-mix(in srgb, var(--nexus-vault, #22d3ee) 22%, transparent);
+  border-radius: 8px;
+  padding: 0.7rem 0.75rem;
+  background: rgb(0 0 0 / 0.22);
+  min-width: 0;
+}
+
+.nexus-jev-card__label {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.nexus-jev-card__value {
+  margin: 0.35rem 0 0.2rem;
+  font-size: 1.35rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #e2e8f0;
+}
+
+.nexus-jev-card__meta {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  line-height: 1.4;
+  color: #94a3b8;
+  word-break: break-word;
+}
+
+.nexus-jev-panel__agreement {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, #64748b 35%, transparent);
+}
+
+.nexus-jev-panel__agree-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.nexus-jev-panel__agreement strong,
+.nexus-jev-hist.is-agree,
+[data-jev-agree].is-agree {
+  color: var(--nexus-vault, #22d3ee);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 12px;
+}
+[data-jev-agree].is-disagree,
+.nexus-jev-hist.is-disagree {
+  color: var(--nexus-observer, #f97316);
+}
+[data-jev-agree].is-partial,
+.nexus-jev-hist.is-partial {
+  color: var(--nexus-sentinel, #eab308);
+}
+
+.nexus-jev-panel__extras {
+  margin-bottom: 0.65rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: #94a3b8;
+  letter-spacing: 0.04em;
+}
+
+.nexus-jev-panel__extras p {
+  margin: 0;
+}
+
+.nexus-jev-panel__hist-label {
+  margin: 0 0 0.35rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.nexus-jev-panel__hist-list {
+  display: grid;
+  gap: 0.3rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.nexus-jev-hist {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.5rem;
+  padding: 0.28rem 0.35rem;
+  border-radius: 4px;
+  background: rgb(0 0 0 / 0.18);
+}
+
+.nexus-jev-panel__disclaimer {
+  margin: 0.75rem 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #64748b;
+}
+
+@media (max-width: 640px) {
+  .nexus-jev-panel__grid {
+    grid-template-columns: 1fr;
+  }
+  .nexus-jev-hist {
+    grid-template-columns: 1fr;
+    gap: 0.15rem;
+  }
+}
