@@ -64,6 +64,7 @@ Kraken key links used in the coach:
 | `KRAKEN_API_KEY` / `KRAKEN_API_SECRET` | empty | **Not needed for paper** |
 | `NEXUS_DASHBOARD_ALLOW_LIVE_ARM` | `0` | Leave off for the template |
 | `NEXUS_SCORECARD_URL` | empty | Optional external scorecard JSON |
-| `TYPESAFE_API_KEY` | empty | Optional Jev compare on Engine (paper research only; never arms live) |
+| `OPENROUTER_API_KEY` | empty | Optional Jev compare on Engine via OpenRouter (paper research only) |
+| `TYPESAFE_API_KEY` | empty | Optional direct TypeSafe Jev key (if you have console access) |
 
 It is a desk template, not a claim of edge. The bundled regime scorecard is an honest research replay: these fixed rules lagged buy-and-hold on the published window. Optional Jev is the same idea — compare only, never execution.

@@ -158,16 +158,22 @@ def jev_status() -> dict[str, Any]:
     settings = _settings()
     return {
         "configured": settings.jev_configured,
+        "provider": settings.jev_provider or None,
         "model": settings.jev_model,
         "paperOnly": True,
         "armsLive": False,
         "disclaimer": (
             "Optional research compare. Jev never arms live on this desk. "
-            "Paper mode stays zero-secret until you set TYPESAFE_API_KEY."
+            "Paper mode stays zero-secret until you set OPENROUTER_API_KEY "
+            "(or TYPESAFE_API_KEY)."
         ),
         "setup": {
-            "env": ["TYPESAFE_API_KEY or NEXUS_JEV_API_KEY", "NEXUS_JEV_MODEL=jev-latest"],
-            "docs": "https://www.jevtypesafeai.com/how-to-use",
+            "env": [
+                "OPENROUTER_API_KEY (preferred)",
+                "TYPESAFE_API_KEY or NEXUS_JEV_API_KEY",
+                "NEXUS_JEV_MODEL=jev-latest",
+            ],
+            "docs": "https://openrouter.ai/docs/guides/community/jev",
         },
     }
 
@@ -179,10 +185,17 @@ def jev_compare(run: int = 0) -> dict[str, Any]:
     with _JEV_HISTORY_LOCK:
         history = list(_JEV_HISTORY)
 
+    route = jev_client.resolve_route(
+        openrouter_api_key=settings.openrouter_api_key,
+        typesafe_api_key=_env_typesafe_only(),
+        model=settings.jev_model,
+    )
+
     base = {
         "paperOnly": True,
         "armsLive": False,
         "configured": settings.jev_configured,
+        "provider": settings.jev_provider or None,
         "model": settings.jev_model,
         "desk": desk,
         "market": {
@@ -201,25 +214,31 @@ def jev_compare(run: int = 0) -> dict[str, Any]:
         "updatedAt": utc_now(),
     }
 
-    if not settings.jev_configured:
+    if not settings.jev_configured or not route:
         base["status"] = "unconfigured"
         base["message"] = (
-            "Set TYPESAFE_API_KEY (or NEXUS_JEV_API_KEY) on the service to ask Jev. "
-            "Until then the desk signal still runs on public Kraken data alone."
+            "Set OPENROUTER_API_KEY on the service to ask Jev (or TYPESAFE_API_KEY "
+            "if you have TypeSafe access). Until then the desk signal still runs "
+            "on public Kraken data alone."
         )
         return base
 
     if not run:
         base["status"] = "ready"
-        base["message"] = "Configured. Pass run=1 (or use Ask Jev) to spend one evaluation."
+        base["message"] = (
+            f"Configured via {route['provider']}. Pass run=1 (or use Ask Jev) "
+            "to spend one evaluation."
+        )
         return base
 
     try:
         state = jev_client.build_state(signal, market)
         result = jev_client.evaluate(
-            api_key=settings.jev_api_key,
+            api_key=route["api_key"],
             state=state,
-            model=settings.jev_model,
+            model=route["model"],
+            url=route["url"],
+            provider=route["provider"],
         )
     except Exception as exc:  # noqa: BLE001
         base["status"] = "error"
@@ -235,6 +254,7 @@ def jev_compare(run: int = 0) -> dict[str, Any]:
         "conviction": result.get("conviction"),
         "takeTrade": result.get("takeTrade"),
         "latencyMs": result.get("latencyMs"),
+        "provider": result.get("provider"),
         "symbol": desk.get("symbol"),
         "price": desk.get("price"),
     }
@@ -255,6 +275,12 @@ def jev_compare(run: int = 0) -> dict[str, Any]:
     )
     return base
 
+
+def _env_typesafe_only() -> str:
+    """TypeSafe-only key (exclude OpenRouter) for resolve_route fallback."""
+    import os
+
+    return str(os.getenv("TYPESAFE_API_KEY") or os.getenv("NEXUS_JEV_API_KEY") or "").strip()
 
 @app.get("/api/market/snapshot")
 def market_snapshot() -> dict[str, Any]:
