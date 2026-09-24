@@ -124,9 +124,9 @@
         : "";
     } else {
       jevAction.textContent = data.configured ? "—" : "OFF";
-      jevMeta.textContent = data.configured
-        ? "Press Ask Jev for one evaluation"
-        : "Set TYPESAFE_API_KEY on Railway";
+        jevMeta.textContent = data.configured
+        ? `Press Ask Jev for one evaluation${data.provider ? ` (${data.provider})` : ""}`
+        : "Set OPENROUTER_API_KEY on Railway";
       extras.hidden = true;
       extras.innerHTML = "";
     }

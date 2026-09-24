@@ -1,4 +1,4 @@
-"""Optional TypeSafe Jev client. Paper research only — never arms live."""
+"""Optional Jev client (TypeSafe direct or OpenRouter). Paper research only — never arms live."""
 from __future__ import annotations
 
 import json
@@ -8,7 +8,8 @@ import urllib.request
 from typing import Any
 
 
-JEV_URL = "https://api.typesafe.ai/v1/systemone"
+TYPESAFE_URL = "https://api.typesafe.ai/v1/systemone"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/systemone"
 DEFAULT_MODEL = "jev-latest"
 
 
@@ -74,11 +75,38 @@ def build_questions() -> dict[str, Any]:
     }
 
 
+def resolve_route(
+    *,
+    openrouter_api_key: str = "",
+    typesafe_api_key: str = "",
+    model: str = DEFAULT_MODEL,
+) -> dict[str, str] | None:
+    """Prefer OpenRouter (works without TypeSafe console), else TypeSafe direct."""
+    model = (model or DEFAULT_MODEL).strip() or DEFAULT_MODEL
+    if openrouter_api_key:
+        return {
+            "provider": "openrouter",
+            "url": OPENROUTER_URL,
+            "api_key": openrouter_api_key,
+            "model": model,
+        }
+    if typesafe_api_key:
+        return {
+            "provider": "typesafe",
+            "url": TYPESAFE_URL,
+            "api_key": typesafe_api_key,
+            "model": model,
+        }
+    return None
+
+
 def evaluate(
     *,
     api_key: str,
     state: dict[str, Any],
     model: str = DEFAULT_MODEL,
+    url: str = TYPESAFE_URL,
+    provider: str = "typesafe",
     timeout: float = 25.0,
 ) -> dict[str, Any]:
     """POST one System One round-trip. Raises RuntimeError on transport/API failure."""
@@ -87,15 +115,19 @@ def evaluate(
         "state": state,
         "questions": build_questions(),
     }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "User-Agent": "nexus-desk-template/1.0",
+        "Accept": "application/json",
+    }
+    if provider == "openrouter":
+        headers["HTTP-Referer"] = "https://nexus.supersym.xyz"
+        headers["X-OpenRouter-Title"] = "Nexus Desk"
     req = urllib.request.Request(
-        JEV_URL,
+        url,
         data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "User-Agent": "nexus-desk-template/1.0",
-            "Accept": "application/json",
-        },
+        headers=headers,
         method="POST",
     )
     started = time.perf_counter()
@@ -119,6 +151,7 @@ def evaluate(
         choice = "flat"
 
     return {
+        "provider": provider,
         "model": body.get("model") or model,
         "direction": choice,
         "directionConfidence": direction.get("confidence"),

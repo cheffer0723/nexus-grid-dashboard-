@@ -54,6 +54,8 @@ class Settings:
     scorecard_url: str
     jev_api_key: str
     jev_model: str
+    jev_provider: str
+    openrouter_api_key: str
     port: int
 
     @property
@@ -62,7 +64,7 @@ class Settings:
 
     @property
     def jev_configured(self) -> bool:
-        return bool(self.jev_api_key)
+        return bool(self.openrouter_api_key or self.jev_api_key)
 
     @property
     def can_arm_live(self) -> bool:
@@ -74,8 +76,18 @@ class Settings:
 
 
 def load_settings() -> Settings:
-    # Official TypeSafe env name, plus Nexus alias.
-    jev_key = _env("TYPESAFE_API_KEY") or _env("NEXUS_JEV_API_KEY")
+    # OpenRouter preferred when TypeSafe console is full; TypeSafe direct still works.
+    openrouter_key = _env("OPENROUTER_API_KEY")
+    typesafe_key = _env("TYPESAFE_API_KEY") or _env("NEXUS_JEV_API_KEY")
+    if openrouter_key:
+        provider = "openrouter"
+        jev_key = openrouter_key
+    elif typesafe_key:
+        provider = "typesafe"
+        jev_key = typesafe_key
+    else:
+        provider = ""
+        jev_key = ""
     return Settings(
         product_name=_env("NEXUS_PRODUCT_NAME", "Nexus Desk"),
         paper_only=_env_bool("NEXUS_PAPER_ONLY", True),
@@ -93,5 +105,7 @@ def load_settings() -> Settings:
         scorecard_url=_env("NEXUS_SCORECARD_URL"),
         jev_api_key=jev_key,
         jev_model=_env("NEXUS_JEV_MODEL", "jev-latest") or "jev-latest",
+        jev_provider=provider,
+        openrouter_api_key=openrouter_key,
         port=_env_int("PORT", 8080),
     )
