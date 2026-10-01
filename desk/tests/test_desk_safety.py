@@ -18,6 +18,19 @@ from backend.state_store import StateStore
 
 
 class DeskSafetyTests(unittest.TestCase):
+    def test_public_bundle_does_not_advertise_unavailable_hosts_or_live_orders(self) -> None:
+        bundle = (Path(__file__).resolve().parents[1] / "public" / "assets" / "index-app.js").read_text(encoding="utf-8")
+        self.assertIn("Railway Runtime", bundle)
+        for stale_claim in (
+            "DigitalOcean Runtime",
+            "Check Droplet",
+            "Live Trading Arm",
+            "live arming gated",
+            "GO LIVE",
+            "Live orders still require the Control Deck live-arm flow",
+        ):
+            self.assertNotIn(stale_claim, bundle)
+
     def test_controls_fail_closed_and_jev_get_cannot_spend(self) -> None:
         with patch.dict(os.environ, {"NEXUS_CONTROL_PASSWORD": ""}), \
              patch.object(main, "get_engine", return_value=PaperEngine(load_settings())), \

@@ -1,4 +1,4 @@
-name: Deploy Nexus Desk to Railway
+name: Validate Nexus Desk (manual Railway deploy)
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  validate-and-optional-deploy:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -18,10 +18,23 @@ jobs:
       - name: Check out
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Desk dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Test Desk safety and persistence
+        run: python -m unittest discover -s tests -v
+
       - name: Install Railway CLI
+        if: github.event_name == 'workflow_dispatch'
         run: npm install -g @railway/cli
 
-      - name: Deploy
+      - name: Manual deploy
+        if: github.event_name == 'workflow_dispatch'
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |

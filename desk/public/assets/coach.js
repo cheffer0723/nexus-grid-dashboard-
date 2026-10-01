@@ -1,5 +1,5 @@
 (() => {
-  const STORAGE_KEY = "nexus-desk-coach-v4";
+  const STORAGE_KEY = "nexus-desk-coach-v5";
   const state = (() => {
     try {
       return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") || {};
@@ -19,11 +19,11 @@
     },
     {
       title: "Use the left rail",
-      body: "<strong>Market</strong> = prices. <strong>Engine</strong> = paper loop. <strong>Control</strong> = arming. <strong>Settings</strong> = knobs. <strong>Logs</strong> / <strong>Instance</strong> = what’s running.",
+      body: "<strong>Market</strong> = prices. <strong>Engine</strong> = paper loop. <strong>Control</strong> = pause, resume, and paper risk. <strong>Settings</strong> = knobs. <strong>Logs</strong> / <strong>Instance</strong> = what’s running. Live-order controls are unavailable in this template.",
     },
     {
-      title: "Keep your paper history",
-      body: "Mount a persistent Railway volume and set <code>NEXUS_STATE_DB</code> to record cycles and simulated trade entries and exits. Without it, a deployment resets the paper record.",
+      title: "Protect controls and history",
+      body: "The Railway template includes a <strong>/data</strong> volume for paper history. To change controls, reveal the generated <code>NEXUS_CONTROL_PASSWORD</code> in Railway Variables and enter it in <strong>Protected controls</strong>. Do not share it.",
     },
   ];
 

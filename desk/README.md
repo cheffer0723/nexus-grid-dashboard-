@@ -1,6 +1,6 @@
 # Nexus Desk (trader template)
 
-One Railway service. One variables panel. Paper trading needs **no exchange keys**.
+One Railway service, one persistent volume, and a generated control password. Paper trading needs **no exchange keys**.
 
 Marketplace / appetite-test overview: [`TEMPLATE.md`](TEMPLATE.md)
 
@@ -8,9 +8,9 @@ Marketplace / appetite-test overview: [`TEMPLATE.md`](TEMPLATE.md)
 
 | When | Variables |
 |---|---|
-| Paper (default) | Nothing. Public Kraken market data only. |
-| Use control writes | Set `NEXUS_CONTROL_PASSWORD`; writes fail closed when absent |
-| Keep a durable paper journal | Mount a Railway volume at `/data`; set `NEXUS_STATE_DB=/data/nexus-desk.sqlite3` |
+| Paper (default) | Nothing. Public Kraken market data only; the published template includes a `/data` volume and generated password. |
+| Use control writes | Reveal the generated `NEXUS_CONTROL_PASSWORD` in Railway Variables and enter it in the Desk. Writes fail closed when absent. |
+| Keep a durable paper journal | The published template mounts `/data` and sets `NEXUS_STATE_DB=/data/nexus-desk.sqlite3`. For manual deployments, configure both yourself. |
 | Allow paid Jev comparisons | Set a control password, persistent state DB, provider key, and `NEXUS_JEV_CALLS_ENABLED=1`; default cap is three attempted calls per UTC day |
 | Live trading | Not implemented in this Desk; keys and flags do not enable order execution |
 | Research card (optional) | `NEXUS_SCORECARD_URL` pointing at a scorecard JSON |
@@ -24,18 +24,18 @@ Published: **[nexus-grid-desk](https://railway.com/deploy/nexus-grid-desk)**
 - Service icon on `nexus-grid-webapp`: Python Devicon
 - Root directory: `desk`
 - Healthcheck: `/api/health`
-- Paper default = zero secrets
+- Paper default = no exchange/API keys; one generated control password
 
 Keep copy honest: paper desk / operator UI, not “guaranteed alpha.”
 
 ## Two repos
 
-1. **This desk** (`desk/`): UI + paper observer + control API → Railway template. The published template points to `main`. The current demo deployment runs a commit from `main`, but its Railway deployment metadata names `cursor/nexus-desk-template-ee93`; verify the service's configured auto-deploy branch before relying on future pushes.
+1. **This desk** (`desk/`): UI + paper observer + control API → Railway template. The published template points to `main`. Confirm the demo's deployed revision separately; the template source and demo deployment are different release paths.
 2. **critical-mass-lab**: algorithms, scorecard jobs, future ML → separate Railway project, no buyer keys. Its stopped market-data collector and Postgres are separate from the Desk.
 
 They can share an explicitly supplied scorecard JSON. The Desk does not read the collector database, the old `NexusRuntime` engine, or local HADES/ONYX experiments.
 
-The Desk's paper state uses process memory unless `NEXUS_STATE_DB` points to a persistent mounted volume. When configured, SQLite stores cycle snapshots, signal/setting provenance, and individual simulated trade entry/exit events. Read them through `GET /api/paper/events`; `?kind=trade` filters trades. The daily Jev budget is stored in the same file. A fresh volume cannot recover cycles or individual trades from earlier containers.
+The Desk's paper state uses process memory unless `NEXUS_STATE_DB` points to a persistent mounted volume. The published template configures both `/data` and the SQLite path. SQLite stores cycle snapshots, signal/setting provenance, and individual simulated trade entry/exit events. Read them through `GET /api/paper/events`; `?kind=trade` filters trades. The daily Jev budget is stored in the same file. A fresh volume cannot recover cycles or individual trades from earlier containers.
 
 `GET /api/health` reports thread liveness, heartbeat age, and errors. A paused paper loop is reported as paused; a degraded loop returns HTTP 503. The website itself remains available for public reads during a pause.
 
@@ -46,17 +46,14 @@ cd desk
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
 uvicorn backend.main:app --host 127.0.0.1 --port 8080
 ```
 
 Open http://127.0.0.1:8080/
 
-## GitHub Actions deploy (your own service)
+## Releases
 
-1. GitHub secrets: `RAILWAY_TOKEN`, `RAILWAY_SERVICE_ID`
-2. Push changes under `desk/`
-3. Workflow `.github/workflows/deploy-desk-railway.yml` runs `railway up` from `desk/`
+Changes to `desk/` on `main` run the GitHub safety tests. The Railway demo should be connected to this repository's `main` branch for automatic deploys. Its actual deployment revision must still be checked after a merge. The workflow's manual `workflow_dispatch` deploy is a fallback and requires GitHub secrets `RAILWAY_TOKEN` and `RAILWAY_SERVICE_ID`; those secrets are not included in this public repository.
 
 ## Notes
 
