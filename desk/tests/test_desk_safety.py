@@ -18,9 +18,20 @@ from backend.state_store import StateStore
 
 
 class DeskSafetyTests(unittest.TestCase):
+    def test_instance_reports_actual_processes_not_systemd_units(self) -> None:
+        engine = PaperEngine(load_settings())
+        engine.open_positions = [{"symbol": "BTC/USD", "entry_price": 100.0}]
+        with patch.object(main, "get_engine", return_value=engine):
+            workload = main.instance_workload()
+        self.assertEqual([service["unit"] for service in workload["services"]],
+                         ["Railway desk process", "In-process paper loop"])
+        positions = workload["artifacts"]["openPositions"]["data"]
+        self.assertEqual(positions, {"position_count": 1, "active_symbols": "BTC/USD"})
+
     def test_public_bundle_does_not_advertise_unavailable_hosts_or_live_orders(self) -> None:
         bundle = (Path(__file__).resolve().parents[1] / "public" / "assets" / "index-app.js").read_text(encoding="utf-8")
         self.assertIn("Railway Runtime", bundle)
+        self.assertIn("Runtime Components", bundle)
         for stale_claim in (
             "DigitalOcean Runtime",
             "Check Droplet",

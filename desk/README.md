@@ -58,6 +58,7 @@ Changes to `desk/` on `main` run the GitHub safety tests. The Railway demo shoul
 ## Notes
 
 - Bundled UI assets under `public/assets/` match the Nexus operator shell.
+- The original React source for the checked-in bundle is not in this repository. `scripts/refresh_bundle_copy.py` makes count-checked copy fixes; `public/paper-only-ui.js` hides obsolete live-order form controls. Recovering and rebuilding the source is the durable follow-up; neither UI layer is the safety boundary.
 - Paper loop is in-process so one container is enough.
 - Live arming always returns an error because this Desk has no order execution path.
 - ML is later; do not block this template on it.

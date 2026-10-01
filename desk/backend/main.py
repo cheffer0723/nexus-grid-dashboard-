@@ -748,33 +748,23 @@ def instance_workload() -> dict[str, Any]:
         "services": [
             {
                 "ok": True,
-                "unit": "nexus-desk.service",
+                "unit": "Railway desk process",
                 "active": True,
                 "activeState": "active",
                 "subState": "running",
-                "enabledState": "enabled",
+                "enabledState": "n/a",
                 "mainPid": os.getpid(),
                 "message": "Single Railway service: UI + paper observer.",
             },
             {
                 "ok": state["status"] == "running",
-                "unit": "nexus-paper.service",
+                "unit": "In-process paper loop",
                 "active": state["status"] == "running",
                 "activeState": state["status"],
                 "subState": state["status"],
-                "enabledState": "enabled",
+                "enabledState": "n/a",
                 "mainPid": os.getpid(),
                 "message": "In-process paper loop (no second host).",
-            },
-            {
-                "ok": True,
-                "unit": "nexus-live.service",
-                "active": False,
-                "activeState": "inactive",
-                "subState": "dead",
-                "enabledState": "disabled",
-                "mainPid": 0,
-                "message": "Live disabled in the paper template.",
             },
         ],
         "artifacts": {
@@ -793,7 +783,7 @@ def instance_workload() -> dict[str, Any]:
             "openPositions": {
                 "ok": True,
                 "updatedAt": engine.last_heartbeat,
-                "data": {"position_count": len(engine.open_positions), "positions": engine.open_positions},
+                "data": {"position_count": len(engine.open_positions), "active_symbols": ", ".join(sorted({str(p.get("symbol", "")) for p in engine.open_positions if p.get("symbol")})) or "none"},
             },
         },
         "journals": {},
@@ -866,3 +856,8 @@ def favicon() -> FileResponse:
 @app.get("/control-auth.js")
 def control_auth() -> FileResponse:
     return FileResponse(PUBLIC / "control-auth.js")
+
+
+@app.get("/paper-only-ui.js")
+def paper_only_ui() -> FileResponse:
+    return FileResponse(PUBLIC / "paper-only-ui.js")
