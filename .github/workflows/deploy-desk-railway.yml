@@ -23,8 +23,8 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install Desk dependencies
-        run: python -m pip install -r requirements.txt
+      - name: Install Desk test dependencies
+        run: python -m pip install -r requirements-test.txt
 
       - name: Test Desk safety and persistence
         run: python -m unittest discover -s tests -v
