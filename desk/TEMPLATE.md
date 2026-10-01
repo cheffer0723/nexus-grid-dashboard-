@@ -1,6 +1,6 @@
 # Deploy and Host Nexus Grid Desk with Railway
 
-Nexus Grid Desk is an operator desk for retail traders — status, market, engine, and controls in one Railway service. Start with no exchange keys (safe paper mode); add Kraken keys later only if you want live.
+Nexus Grid Desk is a paper operator desk for retail traders — status, market, engine, and controls in one Railway service. It has no live order execution path.
 
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/nexus-grid-desk)
 
@@ -8,7 +8,7 @@ Published listing: https://railway.com/deploy/nexus-grid-desk
 
 ## About Hosting Nexus Grid Desk
 
-Hosting this template means running a single Railway service from the `desk/` folder of the public GitHub repo. Railway builds the Dockerfile, exposes public HTTP on port 8080, and health-checks `/api/health`. The paper loop runs in-process, so you do not need a second worker, database, or DigitalOcean droplet for the appetite-test deploy. Live arming stays gated behind explicit flags and credentials you choose later.
+Hosting this template means running a single Railway service from the `desk/` folder of the public GitHub repo. Railway builds the Dockerfile, exposes public HTTP on port 8080, and health-checks `/api/health`. The paper loop runs in-process. A persistent volume is optional for durable history and required for paid Jev calls.
 
 ## Common Use Cases
 
@@ -23,7 +23,7 @@ Hosting this template means running a single Railway service from the `desk/` fo
 - Public GitHub source: `cheffer0723/nexus-grid-dashboard-` (root directory `desk`)
 - Python / FastAPI runtime built from the included Dockerfile
 - Public Kraken market data for paper mode (no API keys)
-- Optional Kraken API key/secret only if you deliberately enable live
+- No Kraken credentials are needed or used for paper execution
 
 ### Deployment Dependencies
 
@@ -43,12 +43,7 @@ The desk opens a plain-language **New here?** guide for new traders:
 1. You are on paper money  
 2. Watch Observe / heartbeat  
 3. What Gateway · Core · Sentinel · Vault · Observer mean  
-4. Optional live later — where to create Kraken API keys, minimum permissions, Railway variable names, and that Sentinel still gates live arming  
-
-Kraken key links used in the coach:
-
-- https://www.kraken.com/u/security/api  
-- https://support.kraken.com/articles/360000919966-how-to-generate-an-api-key-pair  
+4. How to preserve paper history on a persistent volume
 
 ## Variables (all optional for paper)
 
@@ -60,7 +55,10 @@ Kraken key links used in the coach:
 | `NEXUS_SCALP_SL_PCT` | `0.0035` | Optional |
 | `NEXUS_SCALP_TP_PCT` | `0.008` | Optional |
 | `NEXUS_SCALP_POSITION_USD` | `25` | Optional |
-| `NEXUS_CONTROL_PASSWORD` | empty | Only if you want to lock control writes |
+| `NEXUS_CONTROL_PASSWORD` | empty | Required for all control writes and paid Jev calls; empty disables them |
+| `NEXUS_STATE_DB` | empty | Set to `/data/nexus-desk.sqlite3` with a persistent volume to keep paper history |
+| `NEXUS_JEV_CALLS_ENABLED` | `0` | Set to `1` only when you want paid Jev calls |
+| `NEXUS_JEV_MAX_CALLS_PER_DAY` | `3` | Limit attempted calls per UTC day; requires persistent state DB |
 | `KRAKEN_API_KEY` / `KRAKEN_API_SECRET` | empty | **Not needed for paper** |
 | `NEXUS_DASHBOARD_ALLOW_LIVE_ARM` | `0` | Leave off for the template |
 | `NEXUS_SCORECARD_URL` | empty | Optional external scorecard JSON |

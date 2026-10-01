@@ -9,8 +9,10 @@ Marketplace / appetite-test overview: [`TEMPLATE.md`](TEMPLATE.md)
 | When | Variables |
 |---|---|
 | Paper (default) | Nothing. Public Kraken market data only. |
-| Lock control writes (optional) | `NEXUS_CONTROL_PASSWORD` |
-| Live later (optional) | `KRAKEN_API_KEY`, `KRAKEN_API_SECRET`, then flip `NEXUS_PAPER_ONLY=0` and `NEXUS_DASHBOARD_ALLOW_LIVE_ARM=1` deliberately |
+| Use control writes | Set `NEXUS_CONTROL_PASSWORD`; writes fail closed when absent |
+| Keep a durable paper journal | Mount a Railway volume at `/data`; set `NEXUS_STATE_DB=/data/nexus-desk.sqlite3` |
+| Allow paid Jev comparisons | Set a control password, persistent state DB, provider key, and `NEXUS_JEV_CALLS_ENABLED=1`; default cap is three attempted calls per UTC day |
+| Live trading | Not implemented in this Desk; keys and flags do not enable order execution |
 | Research card (optional) | `NEXUS_SCORECARD_URL` pointing at a scorecard JSON |
 
 No DigitalOcean panel. No second host for paper. No Replit URLs. No OpenAI keys for this template.
@@ -28,10 +30,14 @@ Keep copy honest: paper desk / operator UI, not “guaranteed alpha.”
 
 ## Two repos
 
-1. **This desk** (`desk/`): UI + paper observer + control API → Railway template.
-2. **critical-mass-lab**: algorithms, scorecard jobs, future ML → separate Railway project, no buyer keys.
+1. **This desk** (`desk/`): UI + paper observer + control API → Railway template. The published template points to `main`. The current demo deployment runs a commit from `main`, but its Railway deployment metadata names `cursor/nexus-desk-template-ee93`; verify the service's configured auto-deploy branch before relying on future pushes.
+2. **critical-mass-lab**: algorithms, scorecard jobs, future ML → separate Railway project, no buyer keys. Its stopped market-data collector and Postgres are separate from the Desk.
 
-They share JSON only. They do not share `.env`.
+They can share an explicitly supplied scorecard JSON. The Desk does not read the collector database, the old `NexusRuntime` engine, or local HADES/ONYX experiments.
+
+The Desk's paper state uses process memory unless `NEXUS_STATE_DB` points to a persistent mounted volume. When configured, SQLite stores cycle snapshots, signal/setting provenance, and individual simulated trade entry/exit events. Read them through `GET /api/paper/events`; `?kind=trade` filters trades. The daily Jev budget is stored in the same file. A fresh volume cannot recover cycles or individual trades from earlier containers.
+
+`GET /api/health` reports thread liveness, heartbeat age, and errors. A paused paper loop is reported as paused; a degraded loop returns HTTP 503. The website itself remains available for public reads during a pause.
 
 ## Local run
 
@@ -56,6 +62,6 @@ Open http://127.0.0.1:8080/
 
 - Bundled UI assets under `public/assets/` match the Nexus operator shell.
 - Paper loop is in-process so one container is enough.
-- Live arming stays refused until keys and flags are set on purpose.
+- Live arming always returns an error because this Desk has no order execution path.
 - ML is later; do not block this template on it.
 - Regime scorecard on the page is a research replay, not a live track record.

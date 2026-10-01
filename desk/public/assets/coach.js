@@ -11,7 +11,7 @@
   const STEPS = [
     {
       title: "You are on paper",
-      body: "This desk starts in <strong>paper mode</strong>. It watches public market data and simulates trades. No exchange keys. Nothing here can spend real money until you deliberately turn live on later.",
+      body: "This desk runs in <strong>paper mode</strong>. It watches public market data and simulates trades. It has no live order execution path.",
     },
     {
       title: "Watch Status tick",
@@ -22,8 +22,8 @@
       body: "<strong>Market</strong> = prices. <strong>Engine</strong> = paper loop. <strong>Control</strong> = arming. <strong>Settings</strong> = knobs. <strong>Logs</strong> / <strong>Instance</strong> = what’s running.",
     },
     {
-      title: "Live later — optional",
-      body: `Only after paper feels boring-in-a-good-way. Create Kraken keys at <a href="https://www.kraken.com/u/security/api" target="_blank" rel="noopener noreferrer">kraken.com/u/security/api</a>. Minimum permissions. Paste <code>KRAKEN_API_KEY</code> / <code>SECRET</code> in Railway, then flip paper-only / live-arm only when you mean it.`,
+      title: "Keep your paper history",
+      body: "Mount a persistent Railway volume and set <code>NEXUS_STATE_DB</code> to record cycles and simulated trade entries and exits. Without it, a deployment resets the paper record.",
     },
   ];
 

@@ -1,6 +1,6 @@
 (() => {
   const storageKey = "NEXUS_CONTROL_PASSWORD";
-  const protectedPaths = new Set(["/api/command", "/api/settings"]);
+  const protectedPaths = new Set(["/api/command", "/api/settings", "/api/jev/compare"]);
   const originalFetch = window.fetch.bind(window);
 
   function isProtectedWrite(resource, init) {
@@ -16,7 +16,7 @@
 
   window.fetch = (resource, init = {}) => {
     if (!isProtectedWrite(resource, init)) return originalFetch(resource, init);
-    const password = String(localStorage.getItem(storageKey) || "").trim();
+    const password = String(sessionStorage.getItem(storageKey) || "").trim();
     const headers = new Headers(init.headers || {});
     if (password && !headers.has("x-nexus-control-password")) {
       headers.set("x-nexus-control-password", password);
@@ -43,17 +43,27 @@
       const res = await originalFetch("/scorecard.json", { cache: "no-store" });
       if (!res.ok) throw new Error("missing");
       const data = await res.json();
-      const rows = [...(data.engines || [])].sort(
+      const rows = [...(Array.isArray(data.engines) ? data.engines : [])].filter(
+        (row) => row && typeof row === "object",
+      ).sort(
         (a, b) => (b.excess_return ?? -Infinity) - (a.excess_return ?? -Infinity),
       );
-      body.innerHTML =
-        rows
-          .map((row) => {
-            const gap = Number(row.excess_return);
-            const tone = gap > 0 ? "up" : "down";
-            return `<div class="nexus-scorecard-row"><span>${row.name}</span><span>${pct(row.hit_rate_active, 1)}</span><span class="${tone}">${pts(gap)}</span></div>`;
-          })
-          .join("") || "No rows.";
+      body.replaceChildren();
+      for (const row of rows) {
+        const gap = Number(row.excess_return);
+        const line = document.createElement("div");
+        line.className = "nexus-scorecard-row";
+        const name = document.createElement("span");
+        name.textContent = String(row.name || "Unnamed rule");
+        const hitRate = document.createElement("span");
+        hitRate.textContent = pct(Number(row.hit_rate_active), 1);
+        const excess = document.createElement("span");
+        excess.className = gap > 0 ? "up" : "down";
+        excess.textContent = pts(gap);
+        line.append(name, hitRate, excess);
+        body.append(line);
+      }
+      if (!rows.length) body.textContent = "No rows.";
     } catch {
       body.textContent = "Optional. Set NEXUS_SCORECARD_URL or ship scorecard.json.";
     }
@@ -98,7 +108,7 @@
   }
 
   function renderAuth() {
-    if (!/^\/(controls|settings)\/?$/.test(location.pathname)) {
+    if (!/^\/(controls|settings|core)\/?$/.test(location.pathname)) {
       document.getElementById("nexus-control-auth-panel")?.remove();
       return;
     }
@@ -108,7 +118,7 @@
     panel.innerHTML = `
       <div class="nexus-control-auth-title">Protected controls</div>
       <div class="nexus-control-auth-row">
-        <input id="nexus-control-auth-input" type="password" placeholder="Control password (optional)" />
+        <input id="nexus-control-auth-input" type="password" placeholder="Control password" />
         <button id="nexus-control-auth-save" type="button">Save</button>
         <button id="nexus-control-auth-clear" type="button">Clear</button>
       </div>
@@ -116,19 +126,19 @@
     document.body.appendChild(panel);
     const input = panel.querySelector("#nexus-control-auth-input");
     const status = panel.querySelector("#nexus-control-auth-status");
-    input.value = localStorage.getItem(storageKey) || "";
+    input.value = sessionStorage.getItem(storageKey) || "";
     status.textContent = input.value
-      ? "Password saved in this browser."
-      : "Paper viewing is open. Set NEXUS_CONTROL_PASSWORD in Railway only if you want to lock writes.";
+      ? "Password available in this tab."
+      : "Paper viewing is open. Writes and paid Jev calls require NEXUS_CONTROL_PASSWORD in Railway.";
     panel.querySelector("#nexus-control-auth-save").onclick = () => {
       const value = String(input.value || "").trim();
-      if (value) localStorage.setItem(storageKey, value);
-      else localStorage.removeItem(storageKey);
-      status.textContent = value ? "Password saved." : "Password cleared.";
+      if (value) sessionStorage.setItem(storageKey, value);
+      else sessionStorage.removeItem(storageKey);
+      status.textContent = value ? "Password available in this tab." : "Password cleared.";
     };
     panel.querySelector("#nexus-control-auth-clear").onclick = () => {
       input.value = "";
-      localStorage.removeItem(storageKey);
+      sessionStorage.removeItem(storageKey);
       status.textContent = "Password cleared.";
     };
   }
@@ -172,6 +182,7 @@
   `;
 
   function boot() {
+    try { localStorage.removeItem(storageKey); } catch {}
     document.head.appendChild(style);
     renderAuth();
     renderScorecard();

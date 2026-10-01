@@ -1,13 +1,14 @@
 """Nexus Desk template API + static UI. One Railway service. Paper needs no keys."""
 from __future__ import annotations
 
+import hmac
 import json
 import os
+import threading
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-import threading
 
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
@@ -41,35 +42,39 @@ def _startup() -> None:
 def _check_control_password(password: str | None) -> None:
     expected = _settings().control_password
     if not expected:
-        return
-    if (password or "").strip() != expected:
+        raise HTTPException(status_code=503, detail="Controls are disabled until NEXUS_CONTROL_PASSWORD is configured")
+    if not hmac.compare_digest((password or "").strip(), expected):
         raise HTTPException(status_code=401, detail="Control password required")
 
 
 @app.get("/api/health")
-def health() -> dict[str, Any]:
+def health() -> JSONResponse:
     engine = get_engine()
-    return {
-        "ok": True,
+    state = engine.health_snapshot()
+    return JSONResponse({
+        "ok": state["status"] in {"running", "starting", "paused"},
+        "engine": state,
         "product": _settings().product_name,
         "paper_only": _settings().paper_only,
         "cycle": engine.cycle,
         "heartbeat": engine.last_heartbeat,
-    }
+    }, status_code=503 if state["status"] == "degraded" else 200)
 
 
 @app.get("/api/engine/status")
 def engine_status() -> dict[str, Any]:
     settings = _settings()
     engine = get_engine()
+    state = engine.health_snapshot()
     return {
         "engineId": "nexus-paper",
-        "status": "running" if engine.running else "stopped",
+        "status": state["status"],
         "mode": "paper",
         "lastHeartbeat": engine.last_heartbeat,
-        "riskState": "normal",
-        "riskLevel": "normal",
-        "activeAlerts": 0,
+        "riskState": "degraded" if state["status"] == "degraded" else "normal",
+        "riskLevel": "high" if state["status"] == "degraded" else "normal",
+        "activeAlerts": 1 if state["status"] == "degraded" else 0,
+        "health": state,
         "uptime": f"cycle {engine.cycle}",
         "version": "desk-template-1",
         "isMock": False,
@@ -82,6 +87,7 @@ def engine_status() -> dict[str, Any]:
 def core_summary() -> dict[str, Any]:
     settings = _settings()
     engine = get_engine()
+    state = engine.health_snapshot()
     signal = engine.latest_signal or {}
     symbol = signal.get("symbol") or settings.trade_symbol
     try:
@@ -92,8 +98,8 @@ def core_summary() -> dict[str, Any]:
     recommendation = "monitor" if action != "WAIT" else "stand aside"
     return {
         "summary": (
-            f"Paper runner is {'active' if engine.running else 'paused'}; "
-            "live orders remain disabled unless keys and live-arm flags are set.\n"
+            f"Paper runner is {state['status']}; "
+            "This Desk has no live order path.\n"
             f"Kraken public {symbol}: last ${market.get('price')}.\n"
             f"Latest signal: {symbol} {action}; confidence {round(float(signal.get('confidence') or 0) * 100)}%."
         ),
@@ -102,7 +108,7 @@ def core_summary() -> dict[str, Any]:
         "tags": ["paper", symbol, action, "kraken-public"],
         "engine": {
             "engineId": "nexus-paper",
-            "status": "running" if engine.running else "stopped",
+            "status": state["status"],
             "mode": "paper",
             "lastHeartbeat": engine.last_heartbeat,
         },
@@ -158,6 +164,8 @@ def jev_status() -> dict[str, Any]:
     settings = _settings()
     return {
         "configured": settings.jev_configured,
+        "callsEnabled": settings.jev_calls_enabled and bool(settings.control_password) and settings.jev_max_calls_per_day > 0 and bool(get_engine().store),
+        "maxCallsPerDay": settings.jev_max_calls_per_day,
         "provider": settings.jev_provider or None,
         "model": settings.jev_model,
         "paperOnly": True,
@@ -178,9 +186,17 @@ def jev_status() -> dict[str, Any]:
     }
 
 
-@app.get("/api/jev/compare")
-def jev_compare(run: int = 0) -> dict[str, Any]:
+@app.api_route("/api/jev/compare", methods=["GET", "POST"])
+def jev_compare(
+    request: Request,
+    run: int = 0,
+    x_nexus_control_password: str | None = Header(default=None),
+) -> dict[str, Any]:
     """Compare desk paper signal vs optional Jev System One call. Never executes."""
+    if run:
+        if request.method != "POST":
+            raise HTTPException(status_code=405, detail="Use POST to request a Jev comparison")
+        _check_control_password(x_nexus_control_password)
     settings, desk, signal, market = _desk_signal_payload()
     with _JEV_HISTORY_LOCK:
         history = list(_JEV_HISTORY)
@@ -194,7 +210,7 @@ def jev_compare(run: int = 0) -> dict[str, Any]:
     base = {
         "paperOnly": True,
         "armsLive": False,
-        "configured": settings.jev_configured,
+        "configured": settings.jev_configured and settings.jev_calls_enabled and bool(settings.control_password) and settings.jev_max_calls_per_day > 0 and bool(get_engine().store),
         "provider": settings.jev_provider or None,
         "model": settings.jev_model,
         "desk": desk,
@@ -224,12 +240,22 @@ def jev_compare(run: int = 0) -> dict[str, Any]:
         return base
 
     if not run:
-        base["status"] = "ready"
+        base["status"] = "ready" if base["configured"] else "disabled"
         base["message"] = (
-            f"Configured via {route['provider']}. Pass run=1 (or use Ask Jev) "
-            "to spend one evaluation."
+            f"Configured via {route['provider']}. Ask Jev spends one evaluation."
+            if base["configured"] else
+            "Jev calls are disabled. Set a control password, durable state database, and NEXUS_JEV_CALLS_ENABLED to allow up to the daily cap."
         )
         return base
+
+    if not settings.jev_calls_enabled or settings.jev_max_calls_per_day <= 0:
+        raise HTTPException(status_code=503, detail="Jev calls are disabled")
+    store = get_engine().store
+    if not store:
+        raise HTTPException(status_code=503, detail="Jev calls require durable storage for the daily budget")
+    day = datetime.now(timezone.utc).date().isoformat()
+    if not store.reserve_jev_call(day, settings.jev_max_calls_per_day):
+        raise HTTPException(status_code=429, detail="Jev daily call budget reached")
 
     try:
         state = jev_client.build_state(signal, market)
@@ -358,19 +384,21 @@ def market_ohlc(
 def mission_control() -> dict[str, Any]:
     engine = get_engine()
     settings = _settings()
+    state = engine.health_snapshot()
+    active = state["status"] == "running"
     return {
-        "activeAgentCount": 3 if engine.running else 0,
-        "degradedAgentCount": 0,
-        "offlineAgentCount": 0 if engine.running else 3,
-        "engineStatus": "running" if engine.running else "stopped",
+        "activeAgentCount": 3 if active else 0,
+        "degradedAgentCount": 3 if state["status"] == "degraded" else 0,
+        "offlineAgentCount": 3 if state["status"] == "paused" else 0,
+        "engineStatus": state["status"],
         "currentMode": "paper",
-        "riskLevel": "normal",
+        "riskLevel": "high" if state["status"] == "degraded" else "normal",
         "tradingAllowed": False,
-        "systemStatus": "go" if engine.running else "blocked",
-        "reason": "Paper-only monitoring is active." if settings.paper_only else "Live arming requires keys.",
+        "systemStatus": "go" if active else "blocked",
+        "reason": "Paper monitoring is active; live order execution is not implemented.",
         "lastDecision": engine.last_heartbeat,
         "decisionContext": "Dashboard controls manage the in-process paper observer. Live orders stay gated.",
-        "primaryRisk": "Buyers only need Kraken keys for live. Paper uses public market data.",
+        "primaryRisk": "Paper uses public market data. Simulated results omit trading costs.",
         "recommendedAction": "monitor",
     }
 
@@ -382,11 +410,23 @@ def decisions(limit: int = 30) -> dict[str, Any]:
     return {"decisions": rows, "total": len(engine.decisions)}
 
 
+@app.get("/api/paper/events")
+def paper_events(kind: str | None = None, limit: int = 100) -> dict[str, Any]:
+    """Recorded cycles and simulated trade entries/exits on the configured volume."""
+    store = get_engine().store
+    if not store:
+        return {"durable": False, "events": [], "message": "Set NEXUS_STATE_DB on a persistent volume."}
+    if kind not in {None, "cycle", "trade"}:
+        raise HTTPException(status_code=400, detail="kind must be cycle or trade")
+    return {"durable": True, "events": store.events(kind=kind, limit=limit)}
+
+
 @app.get("/api/agents")
 def agents() -> dict[str, Any]:
     engine = get_engine()
     hb = engine.last_heartbeat
-    status = "active" if engine.running else "stopped"
+    state = engine.health_snapshot()
+    status = "active" if state["status"] == "running" else state["status"]
     return {
         "updatedAt": utc_now(),
         "agents": [
@@ -410,11 +450,12 @@ def logs(limit: int = 50, offset: int = 0) -> dict[str, Any]:
 def control_status() -> dict[str, Any]:
     settings = _settings()
     engine = get_engine()
+    state = engine.health_snapshot()
     return {
         "paperService": {
             "unit": "in-process",
-            "active": engine.running,
-            "activeState": "active" if engine.running else "inactive",
+            "active": state["status"] == "running",
+            "activeState": state["status"],
             "enabled": True,
             "enabledState": "enabled",
         },
@@ -467,7 +508,7 @@ async def command(
     elif action in {"LIVE_ARM", "ARM_LIVE"}:
         raise HTTPException(
             status_code=400,
-            detail="Live arming is disabled in the paper template. Set keys and flags in Railway, then enable arming deliberately.",
+            detail="Live order execution is not implemented in this Desk.",
         )
     else:
         engine._command(action or "UNKNOWN", "No-op in template.")
@@ -478,6 +519,7 @@ async def command(
 def settings_get() -> dict[str, Any]:
     settings = _settings()
     engine = get_engine()
+    state = engine.health_snapshot()
     live_active = False
     return {
         "updatedAt": utc_now(),
@@ -487,8 +529,8 @@ def settings_get() -> dict[str, Any]:
         "control": {
             "paperService": {
                 "unit": "in-process",
-                "active": engine.running,
-                "activeState": "active" if engine.running else "inactive",
+                "active": state["status"] == "running",
+                "activeState": state["status"],
                 "enabled": True,
                 "enabledState": "enabled",
             },
@@ -579,7 +621,7 @@ def settings_get() -> dict[str, Any]:
                 "category": "safety",
                 "type": "boolean",
                 "default": "1",
-                "description": "Railway-only. Keep paper on until you deliberately redeploy with live arming.",
+                "description": "Railway-only. This Desk has no live order execution path.",
                 "effectiveSource": "env_file",
                 "guard": "live",
             },
@@ -601,10 +643,10 @@ def settings_get() -> dict[str, Any]:
                 "value": "1" if settings.allow_live_arm else "0",
                 "configured": True,
                 "editable": False,
-                "reason": "Live arming is opt-in via Railway variables only.",
+                "reason": "Live order execution is not implemented in this Desk.",
             },
         ],
-        "buyerHint": "Paper needs no keys. Add KRAKEN_API_KEY and KRAKEN_API_SECRET in Railway only if you arm live.",
+        "buyerHint": "Paper needs no exchange keys. This Desk cannot place live orders.",
     }
 
 
@@ -680,6 +722,7 @@ async def settings_post(request: Request, x_nexus_control_password: str | None =
 def instance_workload() -> dict[str, Any]:
     settings = _settings()
     engine = get_engine()
+    state = engine.health_snapshot()
     signal = engine.latest_signal or {}
     execution = engine.latest_execution or {}
     return {
@@ -692,7 +735,7 @@ def instance_workload() -> dict[str, Any]:
         },
         "summary": {
             "mode": "paper_only" if settings.paper_only else "mixed",
-            "paperState": "running" if engine.running else "stopped",
+            "paperState": state["status"],
             "liveState": "inactive",
             "realOrdersEnabled": False,
             "cycle": engine.cycle,
@@ -714,11 +757,11 @@ def instance_workload() -> dict[str, Any]:
                 "message": "Single Railway service: UI + paper observer.",
             },
             {
-                "ok": True,
+                "ok": state["status"] == "running",
                 "unit": "nexus-paper.service",
-                "active": engine.running,
-                "activeState": "active" if engine.running else "inactive",
-                "subState": "running" if engine.running else "dead",
+                "active": state["status"] == "running",
+                "activeState": state["status"],
+                "subState": state["status"],
                 "enabledState": "enabled",
                 "mainPid": os.getpid(),
                 "message": "In-process paper loop (no second host).",
@@ -739,7 +782,7 @@ def instance_workload() -> dict[str, Any]:
                 "ok": True,
                 "updatedAt": engine.last_heartbeat,
                 "data": {
-                    "state": "running" if engine.running else "stopped",
+                    "state": state["status"],
                     "mode": "paper_only",
                     "real_orders_enabled": False,
                     "current_cycle": engine.cycle,
