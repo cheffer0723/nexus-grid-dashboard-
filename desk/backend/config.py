@@ -56,6 +56,9 @@ class Settings:
     jev_model: str
     jev_provider: str
     openrouter_api_key: str
+    jev_calls_enabled: bool
+    jev_max_calls_per_day: int
+    state_db_path: str
     port: int
 
     @property
@@ -68,11 +71,7 @@ class Settings:
 
     @property
     def can_arm_live(self) -> bool:
-        return (
-            not self.paper_only
-            and self.allow_live_arm
-            and self.live_keys_configured
-        )
+        return False  # This Desk has no order execution path.
 
 
 def load_settings() -> Settings:
@@ -90,7 +89,7 @@ def load_settings() -> Settings:
         jev_key = ""
     return Settings(
         product_name=_env("NEXUS_PRODUCT_NAME", "Nexus Desk"),
-        paper_only=_env_bool("NEXUS_PAPER_ONLY", True),
+        paper_only=True,
         trade_symbol=_env("NEXUS_TRADE_SYMBOL", "BTC/USD") or "BTC/USD",
         loop_interval=max(15, _env_int("NEXUS_LOOP_INTERVAL", 120)),
         stop_loss_pct=_env_float("NEXUS_SCALP_SL_PCT", 0.0035),
@@ -100,12 +99,15 @@ def load_settings() -> Settings:
         vwap_window=max(5, _env_int("NEXUS_SCALP_VWAP_WINDOW", 20)),
         kraken_api_key=_env("KRAKEN_API_KEY"),
         kraken_api_secret=_env("KRAKEN_API_SECRET"),
-        allow_live_arm=_env_bool("NEXUS_DASHBOARD_ALLOW_LIVE_ARM", False),
+        allow_live_arm=False,
         control_password=_env("NEXUS_CONTROL_PASSWORD"),
         scorecard_url=_env("NEXUS_SCORECARD_URL"),
         jev_api_key=jev_key,
         jev_model=_env("NEXUS_JEV_MODEL", "jev-latest") or "jev-latest",
         jev_provider=provider,
         openrouter_api_key=openrouter_key,
+        jev_calls_enabled=_env_bool("NEXUS_JEV_CALLS_ENABLED", False),
+        jev_max_calls_per_day=max(0, min(20, _env_int("NEXUS_JEV_MAX_CALLS_PER_DAY", 3))),
+        state_db_path=_env("NEXUS_STATE_DB"),
         port=_env_int("PORT", 8080),
     )

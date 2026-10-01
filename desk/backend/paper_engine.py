@@ -10,6 +10,7 @@ from typing import Any
 
 from . import kraken_public
 from .config import Settings, load_settings
+from .state_store import StateStore
 
 
 def utc_now() -> str:
@@ -55,7 +56,11 @@ class PaperEngine:
     lock: threading.Lock = field(default_factory=threading.Lock)
     running: bool = True
     cycle: int = 0
-    last_heartbeat: str = field(default_factory=utc_now)
+    started_at: str = field(default_factory=utc_now)
+    last_heartbeat: str = ""
+    last_error: str = ""
+    last_error_at: str = ""
+    error_count: int = 0
     latest_signal: dict[str, Any] = field(default_factory=dict)
     latest_execution: dict[str, Any] = field(default_factory=dict)
     open_positions: list[dict[str, Any]] = field(default_factory=list)
@@ -65,26 +70,43 @@ class PaperEngine:
     logs: list[dict[str, Any]] = field(default_factory=list)
     commands: list[dict[str, Any]] = field(default_factory=list)
     _thread: threading.Thread | None = field(default=None, repr=False)
+    _wake: threading.Event = field(default_factory=threading.Event, repr=False)
+    store: StateStore | None = field(default=None, repr=False)
+    _trade_events: list[dict[str, Any]] = field(default_factory=list, repr=False)
+
+    def __post_init__(self) -> None:
+        if not self.settings.state_db_path:
+            return
+        self.store = StateStore(self.settings.state_db_path)
+        saved = self.store.load()
+        if saved:
+            self.cycle = int(saved.get("cycle") or 0)
+            self.last_heartbeat = str(saved.get("last_heartbeat") or "")
+            self.latest_signal = dict(saved.get("latest_signal") or {})
+            self.latest_execution = dict(saved.get("latest_execution") or {})
+            self.open_positions = list(saved.get("open_positions") or [])
+            self.closed_count = int(saved.get("closed_count") or 0)
+            self.realized_pnl = float(saved.get("realized_pnl") or 0)
 
     def start(self) -> None:
-        if self._thread and self._thread.is_alive():
-            return
         self.running = True
+        if self._thread and self._thread.is_alive():
+            self._wake.set()
+            return
         self._thread = threading.Thread(target=self._loop, name="nexus-paper", daemon=True)
         self._thread.start()
 
     def stop(self) -> None:
         self.running = False
+        self._wake.set()
 
     def restart(self) -> None:
-        self.stop()
-        time.sleep(0.2)
         self.settings = load_settings()
         self.start()
         self._command("RESTART", "Paper observer restarted.")
 
     def pause(self) -> None:
-        self.running = False
+        self.stop()
         self._command("PAUSE", "Paper observer paused.")
 
     def resume(self) -> None:
@@ -93,8 +115,34 @@ class PaperEngine:
         self._command("RESUME", "Paper observer resumed.")
 
     def refresh(self) -> None:
-        self._cycle_once()
+        self._run_cycle()
         self._command("REFRESH", "Status refreshed.")
+
+    def health_snapshot(self) -> dict[str, Any]:
+        thread_alive = bool(self._thread and self._thread.is_alive())
+        since = self.last_heartbeat or self.started_at
+        age = (datetime.now(timezone.utc) - datetime.fromisoformat(since.replace("Z", "+00:00"))).total_seconds()
+        max_age = max(90, self.settings.loop_interval * 2 + 30)
+        if not self.running:
+            status = "paused"
+        elif not thread_alive or age > max_age:
+            status = "degraded"
+        elif not self.last_heartbeat:
+            status = "starting"
+        elif self.last_error_at and self.last_error_at >= self.last_heartbeat:
+            status = "degraded"
+        else:
+            status = "running"
+        return {
+            "status": status,
+            "ok": status == "running",
+            "threadAlive": thread_alive,
+            "lastSuccessfulCycle": self.last_heartbeat or None,
+            "lastError": self.last_error or None,
+            "lastErrorAt": self.last_error_at or None,
+            "errorCount": self.error_count,
+            "heartbeatAgeSeconds": round(age, 1) if self.last_heartbeat else None,
+        }
 
     def _command(self, action: str, detail: str) -> None:
         row = {"at": utc_now(), "action": action, "detail": detail}
@@ -120,7 +168,7 @@ class PaperEngine:
                     "id": row["id"],
                     "systemStatus": "go",
                     "reason": message,
-                    "primaryRisk": "Paper-only template. Live arming stays off until keys and flags are set.",
+                    "primaryRisk": "Paper-only template. Live order execution is not implemented.",
                     "recommendedAction": "monitor",
                     "createdAt": row["timestamp"],
                 },
@@ -128,15 +176,26 @@ class PaperEngine:
             self.decisions = self.decisions[:500]
 
     def _loop(self) -> None:
-        while self.running:
-            try:
-                self._cycle_once()
-            except Exception as exc:  # noqa: BLE001 — keep the loop alive in the template
-                self._log(f"Cycle error: {exc}", level="error")
-            for _ in range(max(1, self.settings.loop_interval)):
-                if not self.running:
-                    break
-                time.sleep(1)
+        while True:
+            if self.running:
+                try:
+                    self._run_cycle()
+                except Exception:  # noqa: BLE001 — keep the loop alive after a failed cycle
+                    pass
+            self._wake.wait(timeout=self.settings.loop_interval if self.running else None)
+            self._wake.clear()
+
+    def _run_cycle(self) -> None:
+        try:
+            self._cycle_once()
+            self.last_error = ""
+            self.last_error_at = ""
+        except Exception as exc:
+            self.last_error = str(exc)
+            self.last_error_at = utc_now()
+            self.error_count += 1
+            self._log(f"Cycle error: {exc}", level="error")
+            raise
 
     def _cycle_once(self) -> None:
         settings = self.settings
@@ -174,8 +233,8 @@ class PaperEngine:
             "market_bias": "BULLISH" if action == "LONG" else "BEARISH" if action == "SHORT" else "NEUTRAL",
             "confidence": confidence,
             "volatility_state": "HIGH" if abs(closes[-1] - closes[-5]) / max(closes[-5], 1.0) > 0.003 else "NORMAL",
-            "allowed_side": "longs_only" if settings.paper_only else "both",
-            "can_trade": action == "LONG" or (action == "SHORT" and not settings.paper_only),
+            "allowed_side": "longs_only",
+            "can_trade": action == "LONG",
             "execution_reason": reason,
             "stop_loss_pct": settings.stop_loss_pct,
             "take_profit_pct_min": settings.take_profit_pct,
@@ -191,14 +250,14 @@ class PaperEngine:
 
         with self.lock:
             self.cycle += 1
-            self.last_heartbeat = utc_now()
+            self._trade_events = []
             self._manage_positions(signal, price)
             self.latest_signal = signal
             unrealized = sum(float(p.get("pnl_abs") or 0.0) for p in self.open_positions)
             self.latest_execution = {
                 "timestamp_utc": utc_now(),
                 "mode": "paper_spot",
-                "shorting_enabled": not settings.paper_only,
+                "shorting_enabled": False,
                 "leverage_enabled": False,
                 "bearish_signal_behavior": "close_long_or_flat",
                 "status": "MANAGED" if self.open_positions else "NO_ACTION",
@@ -225,6 +284,29 @@ class PaperEngine:
                     "side": action,
                 },
             }
+            completed_at = utc_now()
+            snapshot = {
+                "cycle": self.cycle,
+                "last_heartbeat": completed_at,
+                "latest_signal": dict(self.latest_signal),
+                "latest_execution": dict(self.latest_execution),
+                "open_positions": list(self.open_positions),
+                "closed_count": self.closed_count,
+                "realized_pnl": self.realized_pnl,
+                "settings": {
+                    "paper_only": settings.paper_only,
+                    "trade_symbol": settings.trade_symbol,
+                    "loop_interval": settings.loop_interval,
+                    "stop_loss_pct": settings.stop_loss_pct,
+                    "take_profit_pct": settings.take_profit_pct,
+                    "position_usd": settings.position_usd,
+                    "ohlc_interval_min": settings.ohlc_interval_min,
+                    "vwap_window": settings.vwap_window,
+                },
+            }
+            if self.store:
+                self.store.record_cycle(snapshot, self._trade_events)
+            self.last_heartbeat = completed_at
         self._log(f"{symbol} {action}: {reason}")
 
     def _manage_positions(self, signal: dict[str, Any], price: float) -> None:
@@ -250,6 +332,12 @@ class PaperEngine:
                 elif signal.get("action") == "SHORT":
                     reason = "bearish_exit"
             if reason:
+                self._trade_events.append({
+                    "at": utc_now(), "kind": "trade", "action": "close",
+                    "reason": reason, "signal_id": signal["trade_id"],
+                    "position": {**position, "status": "CLOSED", "exit_price": price,
+                                 "exit_timestamp_utc": utc_now()},
+                })
                 self.closed_count += 1
                 self.realized_pnl += float(position["pnl_abs"])
                 continue
@@ -276,6 +364,11 @@ class PaperEngine:
                     "pnl_pct": 0.0,
                 }
             )
+            self._trade_events.append({
+                "at": utc_now(), "kind": "trade", "action": "open",
+                "reason": signal.get("execution_reason"), "signal_id": signal["trade_id"],
+                "position": dict(kept[-1]),
+            })
         self.open_positions = kept
 
 

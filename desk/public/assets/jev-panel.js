@@ -70,17 +70,21 @@
       host.textContent = "No asks yet.";
       return;
     }
-    host.innerHTML = rows
-      .slice(0, 8)
-      .map((r) => {
-        const cls = agreeClass(r.agreement);
-        return `<div class="nexus-jev-hist ${cls}">
-          <span>${r.deskAction || "—"} → ${r.jevDirection || "—"}</span>
-          <span>${r.agreement || "n/a"}</span>
-          <span>${(r.at || "").replace("T", " ").slice(0, 19)}</span>
-        </div>`;
-      })
-      .join("");
+    host.replaceChildren();
+    for (const r of rows.slice(0, 8)) {
+      const line = document.createElement("div");
+      line.className = `nexus-jev-hist ${agreeClass(r.agreement)}`;
+      for (const value of [
+        `${r.deskAction || "—"} → ${r.jevDirection || "—"}`,
+        r.agreement || "n/a",
+        String(r.at || "").replace("T", " ").slice(0, 19),
+      ]) {
+        const cell = document.createElement("span");
+        cell.textContent = String(value);
+        line.append(cell);
+      }
+      host.append(line);
+    }
   }
 
   function paint(el, data) {
@@ -117,10 +121,10 @@
         .join(" · ");
       const probs = jev.directionProbabilities || {};
       extras.hidden = false;
-      extras.innerHTML = Object.keys(probs).length
-        ? `<p>Direction mix: ${Object.entries(probs)
+      extras.textContent = Object.keys(probs).length
+        ? `Direction mix: ${Object.entries(probs)
             .map(([k, v]) => `${k} ${(Number(v) * 100).toFixed(0)}%`)
-            .join(" · ")}</p>`
+            .join(" · ")}`
         : "";
     } else {
       jevAction.textContent = data.configured ? "—" : "OFF";
@@ -150,7 +154,7 @@
     }
     try {
       const url = `/api/jev/compare${run ? "?run=1" : ""}`;
-      const res = await fetch(url, { cache: "no-store" });
+      const res = await fetch(url, { cache: "no-store", method: run ? "POST" : "GET" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || data.message || `HTTP ${res.status}`);
       paint(el, data);
