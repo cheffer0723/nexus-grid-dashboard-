@@ -67,13 +67,38 @@
     });
   }
 
+  function addAnalyticsNavigation() {
+    if (document.querySelector('a[href="/analytics"]')) return true;
+    const instanceLink = document.querySelector('.nexus-command-rail nav a[href="/instance"]')
+      || document.querySelector('nav a[href="/instance"]');
+    if (!instanceLink || !instanceLink.parentElement) return false;
+    const link = instanceLink.cloneNode(true);
+    link.href = "/analytics";
+    link.removeAttribute("aria-current");
+    for (const child of Array.from(link.childNodes)) {
+      if (child.nodeType === Node.TEXT_NODE) child.remove();
+    }
+    link.appendChild(document.createTextNode("Analytics"));
+    instanceLink.parentElement.appendChild(link);
+    return true;
+  }
+
   function escapeHtml(value) {
     const node = document.createElement("span");
     node.textContent = String(value);
     return node.innerHTML;
   }
 
-  function boot() { recordPageview(); renderAnalytics(); }
+  function boot() {
+    recordPageview();
+    renderAnalytics();
+    if (!addAnalyticsNavigation()) {
+      const observer = new MutationObserver(() => {
+        if (addAnalyticsNavigation()) observer.disconnect();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
+  }
   if (document.body) boot(); else document.addEventListener("DOMContentLoaded", boot);
   window.addEventListener("popstate", () => setTimeout(renderAnalytics, 0));
 })();
