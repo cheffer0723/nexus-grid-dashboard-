@@ -46,7 +46,7 @@ class DeskSafetyTests(unittest.TestCase):
         with TestClient(main.app) as client:
             response = client.get("/analytics.js")
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Aggregate page-view analytics", response.text)
+        self.assertIn("aggregate page-view analytics", response.text)
 
     def test_controls_fail_closed_and_jev_get_cannot_spend(self) -> None:
         with patch.dict(os.environ, {"NEXUS_CONTROL_PASSWORD": ""}), \

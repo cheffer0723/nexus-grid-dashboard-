@@ -48,7 +48,7 @@
       const value = password.value.trim();
       if (value) sessionStorage.setItem(controlKey, value);
       else sessionStorage.removeItem(controlKey);
-      status.textContent = "Loading…";
+      status.textContent = "Loading...";
       results.hidden = true;
       try {
         const days = panel.querySelector("#nexus-analytics-days").value;
