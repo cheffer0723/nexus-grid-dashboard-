@@ -9,10 +9,12 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from .config import load_settings
 from . import kraken_public
@@ -28,6 +30,13 @@ app = FastAPI(title="Nexus Desk", version="1.0.0")
 _JEV_HISTORY: list[dict[str, Any]] = []
 _JEV_HISTORY_LOCK = threading.Lock()
 _JEV_HISTORY_MAX = 12
+_ANALYTICS_PAGES = {"/", "/status", "/core", "/market", "/controls", "/settings", "/instance", "/logs", "/analytics"}
+
+
+class AnalyticsPageView(BaseModel):
+    path: str = "/"
+    referrer: str = ""
+    screen: str = "unknown"
 
 
 def _settings():
@@ -47,6 +56,27 @@ def _check_control_password(password: str | None) -> None:
         raise HTTPException(status_code=401, detail="Control password required")
 
 
+def _analytics_store():
+    store = get_engine().store
+    if not store:
+        raise HTTPException(status_code=503, detail="Analytics needs NEXUS_STATE_DB on persistent storage")
+    return store
+
+
+def _analytics_page(path: str) -> str:
+    parsed = urlsplit(path)
+    candidate = parsed.path if parsed.path.startswith("/") else "/"
+    return candidate if candidate in _ANALYTICS_PAGES else "/other"
+
+
+def _analytics_referrer(raw: str) -> str:
+    try:
+        domain = (urlsplit(raw).hostname or "").lower().rstrip(".")
+    except ValueError:
+        domain = ""
+    return domain[:253] or "direct"
+
+
 @app.get("/api/health")
 def health() -> JSONResponse:
     engine = get_engine()
@@ -59,6 +89,37 @@ def health() -> JSONResponse:
         "cycle": engine.cycle,
         "heartbeat": engine.last_heartbeat,
     }, status_code=503 if state["status"] == "degraded" else 200)
+
+
+@app.post("/api/analytics/pageview", status_code=204)
+def analytics_pageview(event: AnalyticsPageView) -> Response:
+    """Record one aggregate page view; never retain IPs, user agents, or IDs."""
+    screen = event.screen if event.screen in {"compact", "wide", "unknown"} else "unknown"
+    _analytics_store().record_pageview(
+        datetime.now(timezone.utc).date().isoformat(),
+        _analytics_page(event.path),
+        _analytics_referrer(event.referrer),
+        screen,
+    )
+    return Response(status_code=204)
+
+
+@app.get("/api/analytics")
+def analytics_report(
+    days: int = Query(default=30, ge=1, le=365),
+    x_nexus_control_password: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Return protected aggregate traffic analytics for the requested UTC-day window."""
+    _check_control_password(x_nexus_control_password)
+    report = _analytics_store().analytics_report(days)
+    report["privacy"] = {
+        "ipAddressesStored": False,
+        "userAgentsStored": False,
+        "cookiesUsed": False,
+        "visitorIdentifiersStored": False,
+        "data": "Aggregate page-view counters only.",
+    }
+    return report
 
 
 @app.get("/api/engine/status")
@@ -831,6 +892,7 @@ def index() -> FileResponse:
 @app.get("/settings")
 @app.get("/instance")
 @app.get("/logs")
+@app.get("/analytics")
 def spa_routes() -> FileResponse:
     return FileResponse(PUBLIC / "index.html")
 

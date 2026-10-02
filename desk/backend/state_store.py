@@ -22,6 +22,14 @@ class StateStore:
             db.execute(
                 "CREATE TABLE IF NOT EXISTS jev_budget (day TEXT PRIMARY KEY, calls INTEGER NOT NULL)"
             )
+            # Privacy-first website analytics: these are aggregate counters only.
+            # Do not add IP addresses, user agents, cookies, or visitor IDs here.
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS analytics_pageviews ("
+                "day TEXT NOT NULL, page TEXT NOT NULL, referrer_domain TEXT NOT NULL, "
+                "screen_class TEXT NOT NULL, views INTEGER NOT NULL DEFAULT 0, "
+                "PRIMARY KEY(day, page, referrer_domain, screen_class))"
+            )
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
@@ -84,3 +92,54 @@ class StateStore:
                 (day, calls + 1),
             )
         return True
+
+    def record_pageview(self, day: str, page: str, referrer_domain: str, screen_class: str) -> None:
+        """Increment an aggregate counter without retaining a visitor identifier."""
+        with self._connect() as db:
+            db.execute(
+                "INSERT INTO analytics_pageviews(day, page, referrer_domain, screen_class, views) "
+                "VALUES(?, ?, ?, ?, 1) "
+                "ON CONFLICT(day, page, referrer_domain, screen_class) "
+                "DO UPDATE SET views=views+1",
+                (day, page, referrer_domain, screen_class),
+            )
+
+    def analytics_report(self, days: int) -> dict[str, Any]:
+        """Return aggregate web traffic only; no raw events are available."""
+        days = max(1, min(days, 365))
+        window = f"-{days - 1} days"
+        with self._connect() as db:
+            total = db.execute(
+                "SELECT COALESCE(SUM(views), 0) FROM analytics_pageviews "
+                "WHERE day >= date('now', ?)",
+                (window,),
+            ).fetchone()[0]
+            daily = db.execute(
+                "SELECT day, SUM(views) AS pageviews FROM analytics_pageviews "
+                "WHERE day >= date('now', ?) GROUP BY day ORDER BY day DESC",
+                (window,),
+            ).fetchall()
+            pages = db.execute(
+                "SELECT page, SUM(views) AS pageviews FROM analytics_pageviews "
+                "WHERE day >= date('now', ?) GROUP BY page ORDER BY pageviews DESC, page ASC LIMIT 20",
+                (window,),
+            ).fetchall()
+            referrers = db.execute(
+                "SELECT referrer_domain, SUM(views) AS pageviews FROM analytics_pageviews "
+                "WHERE day >= date('now', ?) GROUP BY referrer_domain "
+                "ORDER BY pageviews DESC, referrer_domain ASC LIMIT 20",
+                (window,),
+            ).fetchall()
+            screens = db.execute(
+                "SELECT screen_class, SUM(views) AS pageviews FROM analytics_pageviews "
+                "WHERE day >= date('now', ?) GROUP BY screen_class ORDER BY pageviews DESC, screen_class ASC",
+                (window,),
+            ).fetchall()
+        return {
+            "windowDays": days,
+            "totalPageviews": int(total),
+            "daily": [{"day": row[0], "pageviews": int(row[1])} for row in daily],
+            "pages": [{"page": row[0], "pageviews": int(row[1])} for row in pages],
+            "referrers": [{"domain": row[0], "pageviews": int(row[1])} for row in referrers],
+            "screens": [{"screen": row[0], "pageviews": int(row[1])} for row in screens],
+        }

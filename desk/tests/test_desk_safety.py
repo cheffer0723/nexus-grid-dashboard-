@@ -85,6 +85,33 @@ class DeskSafetyTests(unittest.TestCase):
                 reopened = StateStore(variables["NEXUS_STATE_DB"])
                 self.assertFalse(reopened.reserve_jev_call(datetime.now(timezone.utc).date().isoformat(), 1))
 
+    def test_analytics_is_aggregate_and_report_is_protected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            variables = {
+                "NEXUS_CONTROL_PASSWORD": "test-secret",
+                "NEXUS_STATE_DB": str(Path(tmp) / "analytics.sqlite3"),
+            }
+            with patch.dict(os.environ, variables):
+                engine = PaperEngine(load_settings())
+                with patch.object(main, "get_engine", return_value=engine), TestClient(main.app) as client:
+                    response = client.post("/api/analytics/pageview", json={
+                        "path": "/market?symbol=BTC/USD",
+                        "referrer": "https://example.test/a/private/path?secret=nope",
+                        "screen": "compact",
+                    })
+                    self.assertEqual(response.status_code, 204)
+                    self.assertEqual(client.get("/api/analytics").status_code, 401)
+                    report = client.get(
+                        "/api/analytics?days=7",
+                        headers={"x-nexus-control-password": "test-secret"},
+                    )
+                self.assertEqual(report.status_code, 200)
+                data = report.json()
+                self.assertEqual(data["totalPageviews"], 1)
+                self.assertEqual(data["pages"], [{"page": "/market", "pageviews": 1}])
+                self.assertEqual(data["referrers"], [{"domain": "example.test", "pageviews": 1}])
+                self.assertTrue(all(value is False for value in data["privacy"].values() if isinstance(value, bool)))
+
     def test_cycles_and_trade_exits_survive_restart(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             with patch.dict(os.environ, {"NEXUS_STATE_DB": str(Path(tmp) / "paper.sqlite3")}):
