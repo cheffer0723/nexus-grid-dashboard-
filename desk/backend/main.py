@@ -920,6 +920,11 @@ def control_auth() -> FileResponse:
     return FileResponse(PUBLIC / "control-auth.js")
 
 
+@app.get("/analytics.js")
+def analytics_script() -> FileResponse:
+    return FileResponse(PUBLIC / "analytics.js")
+
+
 @app.get("/paper-only-ui.js")
 def paper_only_ui() -> FileResponse:
     return FileResponse(PUBLIC / "paper-only-ui.js")
