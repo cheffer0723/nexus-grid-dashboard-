@@ -163,18 +163,18 @@
     @media (max-width:1023px){
       #nexus-scorecard-panel{
         right:.65rem;left:.65rem;width:auto;
-        bottom:calc(5rem + .75rem);
-        max-height:min(34vh,14.5rem);
+        bottom:calc(5rem + .75rem + 3.5rem);
+        max-height:min(30vh,13rem);
         overflow:auto;
         z-index:40;
       }
       #nexus-control-auth-panel{
-        bottom:calc(5rem + .75rem);
+        bottom:calc(5rem + .75rem + 3.5rem);
         z-index:41;
       }
     }
     @media (max-width:1023px) and (min-width:640px){
-      #nexus-scorecard-panel,#nexus-control-auth-panel{bottom:calc(6rem + .75rem)}
+      #nexus-scorecard-panel,#nexus-control-auth-panel{bottom:calc(6rem + .75rem + 3.5rem)}
     }
     @media (min-width:1024px){
       #nexus-scorecard-panel{bottom:1rem;left:auto;width:min(22rem,calc(100vw - 2rem))}
