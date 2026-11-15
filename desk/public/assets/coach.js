@@ -101,8 +101,8 @@
       document.body.prepend(atmos);
     }
     document.body.appendChild(root);
-    if (state.completed || state.dismissed) showPanel(false);
-    else showPanel(true);
+    // Start as a small tab so the guide never covers the page; the person opens it.
+    showPanel(false);
   }
 
   if (document.readyState === "loading") {

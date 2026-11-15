@@ -94,7 +94,7 @@
         const mobile = window.matchMedia("(max-width: 1023px)").matches;
         const stored = localStorage.getItem("nexus-scorecard-collapsed");
         // On mobile, default collapsed so the toolbar stays usable until they open it
-        if (stored === "1" || (stored == null && mobile)) {
+        if (stored !== "0") {
           panel.classList.add("is-collapsed");
           const btn = panel.querySelector("[data-scorecard-toggle]");
           if (btn) {
@@ -124,6 +124,10 @@
       </div>
       <div id="nexus-control-auth-status" class="nexus-control-auth-status"></div>`;
     document.body.appendChild(panel);
+    panel.classList.add("is-collapsed");
+    panel.querySelector(".nexus-control-auth-title").addEventListener("click", () => {
+      panel.classList.toggle("is-collapsed");
+    });
     const input = panel.querySelector("#nexus-control-auth-input");
     const status = panel.querySelector("#nexus-control-auth-status");
     input.value = sessionStorage.getItem(storageKey) || "";
