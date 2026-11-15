@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>History and readiness · Nexus Desk</title>
+<style>
+  :root{--bg:#05070d;--panel:#0a1224;--line:rgba(54,231,255,.25);--text:#e8eefc;--dim:rgba(232,238,252,.62);--cyan:#36e7ff;--ok:#49e6c1;--bad:#ef70c5;--warn:#f5b83d}
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 80% -10%,#10234a 0%,var(--bg) 60%);color:var(--text);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
+  header{display:flex;flex-wrap:wrap;gap:.75rem 1.25rem;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid var(--line)}
+  header a{color:var(--cyan);text-decoration:none;font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:.8rem}
+  h1{margin:0;font-size:1.05rem;letter-spacing:.14em;text-transform:uppercase}
+  main{max-width:1100px;margin:0 auto;padding:1.25rem}
+  .tabs{display:flex;gap:.5rem;margin-bottom:1rem}
+  .tabs button{background:transparent;border:1px solid var(--line);color:var(--dim);padding:.55rem 1rem;border-radius:.7rem;font:inherit;font-weight:700;cursor:pointer;letter-spacing:.06em}
+  .tabs button[aria-selected=true]{color:var(--cyan);background:rgba(54,231,255,.1)}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:1rem;padding:1rem}
+  .bar{display:flex;flex-wrap:wrap;gap:.6rem;align-items:end;margin-bottom:1rem}
+  label{display:flex;flex-direction:column;gap:.25rem;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  select,input,.btn{background:#050a18;border:1px solid var(--line);color:var(--text);border-radius:.6rem;padding:.5rem .65rem;font:inherit}
+  .btn{cursor:pointer;color:var(--cyan);font-weight:700;text-decoration:none;display:inline-block}
+  .row{display:grid;grid-template-columns:11.5rem 11rem 1fr;gap:.75rem;padding:.55rem .25rem;border-top:1px solid rgba(54,231,255,.12);align-items:start}
+  .row:first-child{border-top:0}
+  .time{color:var(--dim);font-variant-numeric:tabular-nums;font-size:.82rem}
+  .chip{display:inline-block;white-space:nowrap;padding:.1rem .55rem;border-radius:999px;border:1px solid var(--line);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--cyan)}
+  .msg{overflow-wrap:anywhere}
+  .gate{display:grid;grid-template-columns:7.5rem 1fr;gap:.75rem;padding:.7rem .25rem;border-top:1px solid rgba(54,231,255,.12)}
+  .gate:first-child{border-top:0}
+  .pass{color:var(--ok);border-color:var(--ok)}.fail{color:var(--bad);border-color:var(--bad)}.not_checked{color:var(--warn);border-color:var(--warn)}
+  .fix{color:var(--dim);font-size:.9rem}
+  .note{color:var(--dim);font-size:.9rem;margin:.25rem 0 1rem}
+  .empty{color:var(--dim);padding:1rem .25rem}
+  @media (max-width:640px){.row{grid-template-columns:1fr;gap:.15rem}.gate{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Nexus Desk · History and readiness</h1>
+  <a href="/">← Back to the Desk</a>
+</header>
+<main>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tab-history" aria-selected="true">History</button>
+    <button role="tab" id="tab-ready" aria-selected="false">Live readiness</button>
+  </div>
+
+  <section id="history" class="panel">
+    <p class="note">Everything the Desk records, newest first: each check cycle, log line, button press and settings change. Paper trading only. Download it to keep your own copy.</p>
+    <div class="bar">
+      <label>Type<select id="kind"><option value="">All</option></select></label>
+      <label>From<input type="date" id="since"></label>
+      <label>To<input type="date" id="until"></label>
+      <button class="btn" id="apply" type="button">Show</button>
+      <a class="btn" id="csv" href="/api/history.csv">Download CSV</a>
+    </div>
+    <div id="rows"></div>
+    <p><button class="btn" id="more" type="button" hidden>Load older</button></p>
+  </section>
+
+  <section id="ready" class="panel" hidden>
+    <p class="note" id="ready-note"></p>
+    <div id="gates"></div>
+  </section>
+</main>
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var next=null, kindsLoaded=false;
+  function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
+  function summary(ev){
+    var d=ev.data||{};
+    try{
+      if(ev.kind==="log")return d.message||"";
+      if(ev.kind==="command")return (d.action||"")+(d.detail?" — "+d.detail:"");
+      if(ev.kind==="settings_change"){var c=d.changes||{};return Object.keys(c).map(function(k){return k+": "+c[k].from+" → "+c[k].to}).join("; ")}
+      if(ev.kind==="trade")return (d.action||"")+" "+(d.symbol||"")+(d.price!=null?" @ "+d.price:"");
+      if(ev.kind==="cycle"){var s=d.signal||{};return "Cycle "+d.cycle+": "+(s.action||"")+" "+(s.symbol||"")+(s.current_price!=null?" @ "+s.current_price:"")}
+      if(ev.kind==="verification")return (d.ok?"Passed":"Failed")+" — "+(d.passed||0)+" passed, "+(d.failed||0)+" failed";
+    }catch(e){}
+    return JSON.stringify(d);
+  }
+  function query(before){
+    var p=new URLSearchParams();p.set("limit","100");
+    if($("kind").value)p.set("kind",$("kind").value);
+    if($("since").value)p.set("since",$("since").value);
+    if($("until").value)p.set("until",$("until").value+"T23:59:59Z");
+    if(before)p.set("before",before);
+    return p;
+  }
+  function csvLink(){
+    var p=new URLSearchParams();
+    if($("kind").value)p.set("kind",$("kind").value);
+    if($("since").value)p.set("since",$("since").value);
+    if($("until").value)p.set("until",$("until").value+"T23:59:59Z");
+    $("csv").href="/api/history.csv"+(p.toString()?"?"+p:"");
+  }
+  function load(append){
+    csvLink();
+    fetch("/api/history?"+query(append?next:null)).then(function(r){return r.json()}).then(function(j){
+      var rows=$("rows");if(!append)rows.replaceChildren();
+      if(!j.enabled){rows.append(el("div","empty",j.note||"History is not turned on."));$("more").hidden=true;return}
+      if(!kindsLoaded){Object.keys(j.kinds||{}).forEach(function(k){var o=el("option",null,k+" ("+j.kinds[k]+")");o.value=k;$("kind").append(o)});kindsLoaded=true}
+      if(!j.events.length&&!append)rows.append(el("div","empty","Nothing recorded for this selection yet."));
+      j.events.forEach(function(ev){
+        var r=el("div","row");
+        r.append(el("div","time",ev.at.replace("T"," ").replace(/\.\d+Z?$/,"").replace("Z"," UTC")));
+        var c=el("div");c.append(el("span","chip",ev.kind));r.append(c);
+        r.append(el("div","msg",summary(ev)));
+        rows.append(r);
+      });
+      next=j.nextBefore;$("more").hidden=!next;
+    }).catch(function(){$("rows").replaceChildren(el("div","empty","Could not load history. Is the Desk running?"))});
+  }
+  function loadReady(){
+    fetch("/api/live/readiness").then(function(r){return r.json()}).then(function(j){
+      $("ready-note").textContent=j.liveBlockedBecause+" "+j.gatesPassed+" of "+j.gatesTotal+" checks pass.";
+      var g=$("gates");g.replaceChildren();
+      j.gates.forEach(function(x){
+        var r=el("div","gate");
+        var c=el("div");c.append(el("span","chip "+x.status,x.status==="not_checked"?"not checked":x.status));r.append(c);
+        var b=el("div");b.append(el("div",null,x.label));b.append(el("div","fix",x.detail));
+        if(x.fix)b.append(el("div","fix","To fix: "+x.fix));
+        r.append(b);g.append(r);
+      });
+    }).catch(function(){$("ready-note").textContent="Could not load readiness."});
+  }
+  function show(which){
+    var h=which==="history";
+    $("history").hidden=!h;$("ready").hidden=h;
+    $("tab-history").setAttribute("aria-selected",h);$("tab-ready").setAttribute("aria-selected",!h);
+    if(!h)loadReady();
+  }
+  $("tab-history").onclick=function(){show("history")};
+  $("tab-ready").onclick=function(){show("ready")};
+  $("apply").onclick=function(){load(false)};
+  $("more").onclick=function(){load(true)};
+  if(location.hash==="#readiness")show("ready");
+  load(false);
+})();
+</script>
+</body>
+</html>
