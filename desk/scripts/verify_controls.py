@@ -1,6 +1,9 @@
 """Checks every Desk control end to end against a RUNNING Desk (local or Railway).
 
-Usage:  python scripts/verify_controls.py https://your-desk.up.railway.app  YOUR_CONTROL_PASSWORD
+Usage:  python scripts/verify_controls.py https://your-desk.up.railway.app  YOUR_CONTROL_PASSWORD  [--record]
+
+--record  leaves the result in the Desk's history (counts toward the "verification" readiness check).
+          It is self-reported: it shows the check was run, not that anyone audited it.
 
 For each control it does the action, then reads the Desk back to confirm the thing
 really changed (not just that the server said "ok"). It prints PASS/FAIL per line and
@@ -9,7 +12,9 @@ No live trading exists in this Desk, so nothing here can place a real order.
 """
 import sys, time, httpx
 
-base, password = sys.argv[1].rstrip("/"), sys.argv[2]
+args = [a for a in sys.argv[1:] if a != "--record"]
+record = "--record" in sys.argv
+base, password = args[0].rstrip("/"), args[1]
 H = {"x-nexus-control-password": password}
 results = []
 
@@ -62,5 +67,18 @@ check("safety flags cannot be changed from the screen",
 for path in ("/api/market/snapshot", "/api/market/ohlc?symbol=BTC/USD&interval=5", "/api/decisions", "/api/paper/events", "/api/logs", "/api/paper/events"):
     r = c.get(base + path)
     check(f"data feed {path.split('?')[0]} answers", r.status_code == 200, f"http {r.status_code}")
+
+# 8. History and readiness
+hist = get("/api/history?kind=command&limit=5")
+check("history is recording button presses", hist.get("enabled") is True and len(hist.get("events", [])) > 0,
+      "turn on NEXUS_STATE_DB" if not hist.get("enabled") else "")
+check("history CSV downloads", c.get(base + "/api/history.csv").status_code == 200)
+check("settings changes are in the history", any(e["data"].get("changes") for e in get("/api/history?kind=settings_change&limit=5").get("events", [])))
+ready = get("/api/live/readiness")
+check("live trading reports itself as blocked", ready.get("liveAllowed") is False)
+
+if record:
+    r = post("/api/verification", {"ok": all(results), "passed": sum(results), "failed": len(results) - sum(results)})
+    check("result recorded in history", r.status_code == 200, f"http {r.status_code}")
 
 sys.exit(0 if all(results) else 1)

@@ -73,6 +73,7 @@ class PaperEngine:
     _wake: threading.Event = field(default_factory=threading.Event, repr=False)
     store: StateStore | None = field(default=None, repr=False)
     _trade_events: list[dict[str, Any]] = field(default_factory=list, repr=False)
+    journal_errors: int = 0
 
     def __post_init__(self) -> None:
         if not self.settings.state_db_path:
@@ -87,6 +88,7 @@ class PaperEngine:
             self.open_positions = list(saved.get("open_positions") or [])
             self.closed_count = int(saved.get("closed_count") or 0)
             self.realized_pnl = float(saved.get("realized_pnl") or 0)
+        self._restore_history()
 
     def start(self) -> None:
         self.running = True
@@ -144,11 +146,44 @@ class PaperEngine:
             "heartbeatAgeSeconds": round(age, 1) if self.last_heartbeat else None,
         }
 
+    def record_event(self, kind: str, data: dict[str, Any]) -> None:
+        """Write one row to the permanent journal. A journal problem must never stop trading logic."""
+        if not self.store:
+            return
+        try:
+            self.store.append_event(kind, data, utc_now())
+        except Exception:  # noqa: BLE001
+            self.journal_errors += 1
+
+    def _restore_history(self) -> None:
+        """After a restart, bring back the button history, log lines and decision list from the journal."""
+        if not self.store:
+            return
+        try:
+            self.commands = [dict(e["data"]) for e in self.store.events("command", 40)]
+            logs = [dict(e["data"]) for e in self.store.events("log", 500)]
+        except Exception:  # noqa: BLE001
+            return
+        self.logs = logs
+        self.decisions = [self._decision_from_log(row) for row in logs]
+
+    @staticmethod
+    def _decision_from_log(row: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "id": row["id"],
+            "systemStatus": "go",
+            "reason": row["message"],
+            "primaryRisk": "Paper-only template. Live order execution is not implemented.",
+            "recommendedAction": "monitor",
+            "createdAt": row["timestamp"],
+        }
+
     def _command(self, action: str, detail: str) -> None:
         row = {"at": utc_now(), "action": action, "detail": detail}
         with self.lock:
             self.commands.insert(0, row)
             self.commands = self.commands[:40]
+        self.record_event("command", row)
 
     def _log(self, message: str, level: str = "info", source: str = "engine_cycle") -> None:
         row = {
@@ -162,18 +197,9 @@ class PaperEngine:
         with self.lock:
             self.logs.insert(0, row)
             self.logs = self.logs[:500]
-            self.decisions.insert(
-                0,
-                {
-                    "id": row["id"],
-                    "systemStatus": "go",
-                    "reason": message,
-                    "primaryRisk": "Paper-only template. Live order execution is not implemented.",
-                    "recommendedAction": "monitor",
-                    "createdAt": row["timestamp"],
-                },
-            )
+            self.decisions.insert(0, self._decision_from_log(row))
             self.decisions = self.decisions[:500]
+        self.record_event("log", row)
 
     def _loop(self) -> None:
         while True:

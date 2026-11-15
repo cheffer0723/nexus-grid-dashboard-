@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 from .config import load_settings
 from . import kraken_public
+from . import readiness as live_readiness
 from . import jev as jev_client
 from .paper_engine import get_engine, utc_now
 
@@ -734,6 +735,7 @@ async def settings_post(request: Request, x_nexus_control_password: str | None =
     confirmation = str(body.get("confirmation") or "").strip()
     blocked = []
     applied = {}
+    previous: dict[str, str] = {}
     for key, raw in changes.items():
         key = str(key)
         value = "" if raw is None else str(raw).strip()
@@ -748,6 +750,7 @@ async def settings_post(request: Request, x_nexus_control_password: str | None =
                 value = str(max(15, int(float(value))))
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=f"Invalid {key}") from exc
+        previous[key] = os.environ.get(key, "")
         os.environ[key] = value
         applied[key] = value
 
@@ -765,6 +768,10 @@ async def settings_post(request: Request, x_nexus_control_password: str | None =
         raise HTTPException(status_code=400, detail="No runtime-safe changes to apply")
 
     engine = get_engine()
+    engine.record_event("settings_change", {
+        "changes": {k: {"from": previous.get(k, ""), "to": v} for k, v in applied.items()},
+        "blocked": blocked,
+    })
     restart_raw = body.get("restartServices")
     restart = bool(restart_raw) if not isinstance(restart_raw, list) else len(restart_raw) > 0
     if restart:
@@ -779,6 +786,90 @@ async def settings_post(request: Request, x_nexus_control_password: str | None =
     if restart:
         msg += " Paper observer restarted."
     return {"ok": True, "message": msg, "settings": payload, "applied": applied, "blocked": blocked}
+
+
+def _history_args(kind: str | None, since: str | None, until: str | None) -> dict[str, Any]:
+    for value in (since, until):
+        if value:
+            try:
+                datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail="Dates must look like 2026-11-14 or 2026-11-14T12:00:00Z") from exc
+    return {"kind": kind or None, "since": since or None, "until": until or None}
+
+
+@app.get("/api/history")
+def history(
+    kind: str | None = None,
+    limit: int = 100,
+    before: int | None = None,
+    since: str | None = None,
+    until: str | None = None,
+) -> dict[str, Any]:
+    """The permanent journal, newest first. Page backwards by passing the last id as `before`."""
+    engine = get_engine()
+    if not engine.store:
+        return {"enabled": False, "events": [], "kinds": {}, "note": "No journal: set NEXUS_STATE_DB to keep history."}
+    rows = engine.store.history(limit=limit, before_id=before, **_history_args(kind, since, until))
+    return {
+        "enabled": True,
+        "events": rows,
+        "kinds": engine.store.kind_counts(),
+        "nextBefore": rows[-1]["id"] if len(rows) == max(1, min(limit, 5000)) else None,
+    }
+
+
+def _csv_safe(value: Any) -> str:
+    text = "" if value is None else str(value)
+    return "'" + text if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
+
+
+@app.get("/api/history.csv")
+def history_csv(kind: str | None = None, since: str | None = None, until: str | None = None) -> Response:
+    """Download the journal for a date range so a user keeps their own records."""
+    import csv
+    import io
+
+    engine = get_engine()
+    if not engine.store:
+        raise HTTPException(status_code=404, detail="No journal: set NEXUS_STATE_DB to keep history.")
+    rows = engine.store.history(limit=5000, **_history_args(kind, since, until))
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(["id", "time_utc", "kind", "detail_json"])
+    for row in reversed(rows):  # oldest first reads naturally in a spreadsheet
+        writer.writerow([row["id"], row["at"], _csv_safe(row["kind"]), _csv_safe(json.dumps(row["data"], separators=(",", ":")))])
+    return Response(
+        out.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="nexus-desk-history.csv"'},
+    )
+
+
+@app.get("/api/live/readiness")
+def live_readiness_status() -> dict[str, Any]:
+    """What a user would still need to set up before live trading could ever be offered. Report only."""
+    return live_readiness.evaluate(_settings(), get_engine().store)
+
+
+@app.post("/api/verification")
+async def record_verification(
+    request: Request,
+    x_nexus_control_password: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Lets scripts/verify_controls.py --record leave its result in the journal (self-reported)."""
+    _check_control_password(x_nexus_control_password)
+    body = await request.json()
+    engine = get_engine()
+    if not engine.store:
+        raise HTTPException(status_code=409, detail="No journal: set NEXUS_STATE_DB to keep records.")
+    engine.record_event("verification", {
+        "ok": bool(body.get("ok")),
+        "passed": int(body.get("passed") or 0),
+        "failed": int(body.get("failed") or 0),
+        "source": "scripts/verify_controls.py (self-reported)",
+    })
+    return {"ok": True}
 
 
 @app.get("/api/instance/workload")
@@ -885,6 +976,11 @@ def scorecard_proxy() -> Any:
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(PUBLIC / "index.html")
+
+
+@app.get("/history")
+def history_page() -> FileResponse:
+    return FileResponse(PUBLIC / "history.html")
 
 
 @app.get("/status")

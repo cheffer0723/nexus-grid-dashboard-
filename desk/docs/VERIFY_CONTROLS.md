@@ -35,7 +35,9 @@ Pick one paper trade the Desk makes and confirm all four places agree:
 If one place is missing, data collection is broken. Note: the Desk simulation leaves out fees, spread and slippage, so its profit numbers are better than real trading would be.
 
 ## Step 4 — Survive a restart
-Note cycle count and closed-trade count. Redeploy/restart the Railway service. Both numbers should carry on, not reset to zero (the journal lives on the `/data` volume). If they reset, the volume is not attached.
+Note cycle count and closed-trade count. Redeploy/restart the Railway service. Both numbers should carry on, not reset to zero (the journal lives on the `/data` volume). The button history, log lines and decision list should also still be there (they are saved to the same journal), and the new History page (`/history`) should still show everything from before the restart. If they reset, the volume is not attached.
+
+To leave a record that you ran this check, add `--record` to the command. It appears in History as a "verification" entry and counts toward the "Control verification" readiness check. It is self-reported: it shows the check was run, not that anyone audited it.
 
 ## Step 5 — Things that must be refused
 - Any button without the password: refused (401).
