@@ -79,6 +79,46 @@ class StateStore:
                 ).fetchall()
         return [{"id": row[0], "at": row[1], "kind": row[2], "data": json.loads(row[3])} for row in rows]
 
+    def append_event(self, kind: str, payload: dict[str, Any], at: str) -> None:
+        """Add one permanent row to the journal. Rows are never edited or deleted by the app."""
+        with self._connect() as db:
+            db.execute(
+                "INSERT INTO events(at, kind, payload) VALUES(?, ?, ?)",
+                (at, kind, json.dumps(payload, separators=(",", ":"), allow_nan=False, default=str)),
+            )
+
+    def history(
+        self,
+        kind: str | None = None,
+        limit: int = 100,
+        before_id: int | None = None,
+        since: str | None = None,
+        until: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Newest first. Filter by kind and by time range; page backwards with before_id."""
+        limit = max(1, min(limit, 5000))
+        where, args = [], []
+        if kind:
+            where.append("kind=?"); args.append(kind)
+        if before_id:
+            where.append("id<?"); args.append(int(before_id))
+        if since:
+            where.append("at>=?"); args.append(since)
+        if until:
+            where.append("at<=?"); args.append(until)
+        sql = "SELECT id, at, kind, payload FROM events"
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        sql += " ORDER BY id DESC LIMIT ?"
+        with self._connect() as db:
+            rows = db.execute(sql, (*args, limit)).fetchall()
+        return [{"id": r[0], "at": r[1], "kind": r[2], "data": json.loads(r[3])} for r in rows]
+
+    def kind_counts(self) -> dict[str, int]:
+        with self._connect() as db:
+            rows = db.execute("SELECT kind, COUNT(*) FROM events GROUP BY kind ORDER BY kind").fetchall()
+        return {r[0]: int(r[1]) for r in rows}
+
     def reserve_jev_call(self, day: str, limit: int) -> bool:
         with self._connect() as db:
             db.execute("BEGIN IMMEDIATE")
