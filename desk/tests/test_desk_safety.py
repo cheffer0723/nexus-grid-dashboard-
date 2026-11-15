@@ -62,6 +62,26 @@ class DeskSafetyTests(unittest.TestCase):
              TestClient(main.app) as client:
             self.assertEqual(client.post("/api/command", json={"action": "PAUSE"}).status_code, 401)
 
+    def test_every_control_button_name_really_changes_the_engine(self) -> None:
+        """The Control Deck sends these exact names; each must act, not silently no-op."""
+        header = {"x-nexus-control-password": "test-secret"}
+        with patch.dict(os.environ, {"NEXUS_CONTROL_PASSWORD": "test-secret"}):
+            engine = PaperEngine(load_settings())
+            with patch.object(main, "get_engine", return_value=engine), \
+                 patch.object(PaperEngine, "start"), patch.object(PaperEngine, "_run_cycle"), \
+                 TestClient(main.app) as client:
+                for sent, running_after in (
+                    ("paper_pause", False), ("paper_resume", True),
+                    ("emergency_stop", False), ("paper_restart", True),
+                ):
+                    engine.running = not running_after if sent != "paper_restart" else False
+                    if sent in ("paper_resume", "paper_restart"):
+                        engine.start = lambda: setattr(engine, "running", True)  # type: ignore[method-assign]
+                    reply = client.post("/api/command", json={"action": sent}, headers=header)
+                    self.assertEqual(reply.status_code, 200, sent)
+                    self.assertEqual(engine.running, running_after, f"{sent} did not take effect")
+                    self.assertNotIn("No-op", str(engine.commands[0]), sent)
+
     def test_paid_call_requires_auth_and_uses_durable_daily_cap(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             variables = {

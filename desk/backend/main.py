@@ -560,11 +560,13 @@ async def command(
     engine = get_engine()
     if action in {"REFRESH", "SYNC"}:
         engine.refresh()
-    elif action in {"RESTART"}:
+    elif action in {"RESTART", "PAPER_RESTART"}:
         engine.restart()
-    elif action in {"PAUSE", "STOP"}:
+    elif action in {"PAUSE", "STOP", "PAPER_PAUSE", "EMERGENCY_STOP"}:
+        # The Control Deck buttons send PAPER_PAUSE and EMERGENCY_STOP. Before this
+        # fix those fell through to the no-op branch below and the engine kept running.
         engine.pause()
-    elif action in {"RESUME", "START"}:
+    elif action in {"RESUME", "START", "PAPER_RESUME"}:
         engine.resume()
     elif action in {"LIVE_ARM", "ARM_LIVE"}:
         raise HTTPException(

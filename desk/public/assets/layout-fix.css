@@ -1,0 +1,23 @@
+/* Keeps the three floating helpers out of the way of the page.
+   Bottom-left: guide tab.  Bottom-right: scorecard tab, with the password tab stacked above it.
+   All start as small tabs; tapping one opens it. */
+/* desktop: guide tab sits beside the scorecard tab, clear of the left menu */
+.nexus-coach-root{inset:auto 17rem 1rem auto;width:auto}
+#nexus-control-auth-panel .nexus-control-auth-title{cursor:pointer}
+#nexus-control-auth-panel.is-collapsed .nexus-control-auth-row,
+#nexus-control-auth-panel.is-collapsed .nexus-control-auth-status{display:none}
+#nexus-control-auth-panel.is-collapsed .nexus-control-auth-title::after{content:"Show";font-size:.8em}
+#nexus-control-auth-panel:not(.is-collapsed) .nexus-control-auth-title::after{content:"Hide";font-size:.8em}
+#nexus-control-auth-panel.is-collapsed,#nexus-scorecard-panel.is-collapsed{width:auto;min-width:11rem;padding:.55rem .85rem}
+#nexus-control-auth-panel{right:1rem;bottom:4.4rem}
+#nexus-scorecard-panel{right:1rem;bottom:1rem}
+@media (max-width:1023px){
+  /* phone/tablet: sit above the bottom tab bar, one row each, never full width */
+  .nexus-coach-root{inset:auto auto calc(5.25rem + .5rem) .65rem;width:auto}
+  #nexus-scorecard-panel,#nexus-control-auth-panel{left:auto!important;right:.65rem!important;width:min(22rem,calc(100vw - 1.3rem))!important}
+  #nexus-scorecard-panel{bottom:calc(5.25rem + .5rem)!important}
+  #nexus-control-auth-panel{bottom:calc(5.25rem + .5rem + 3.4rem)!important}
+  #nexus-scorecard-panel.is-collapsed,#nexus-control-auth-panel.is-collapsed{width:auto!important}
+}
+/* an open guide gets the whole bottom sheet on phones but a close button stays reachable */
+@media (max-width:1023px){.nexus-coach-panel{max-height:min(60vh,520px)}}
