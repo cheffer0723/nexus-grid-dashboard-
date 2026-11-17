@@ -1,6 +1,6 @@
 (() => {
   const storageKey = "NEXUS_CONTROL_PASSWORD";
-  const protectedPaths = new Set(["/api/command", "/api/settings", "/api/jev/compare"]);
+  const protectedPaths = new Set(["/api/control/auth", "/api/command", "/api/settings", "/api/jev/compare"]);
   const originalFetch = window.fetch.bind(window);
 
   function isProtectedWrite(resource, init) {
@@ -131,18 +131,40 @@
     const input = panel.querySelector("#nexus-control-auth-input");
     const status = panel.querySelector("#nexus-control-auth-status");
     input.value = sessionStorage.getItem(storageKey) || "";
-    status.textContent = input.value
-      ? "Password available in this tab."
+    const stored = input.value;
+    status.textContent = stored
+      ? "Password saved for this tab. Verify it to unlock paper controls."
       : "Paper viewing is open. Writes and paid Jev calls require NEXUS_CONTROL_PASSWORD in Railway.";
-    panel.querySelector("#nexus-control-auth-save").onclick = () => {
+    panel.querySelector("#nexus-control-auth-save").onclick = async () => {
       const value = String(input.value || "").trim();
-      if (value) sessionStorage.setItem(storageKey, value);
-      else sessionStorage.removeItem(storageKey);
-      status.textContent = value ? "Password available in this tab." : "Password cleared.";
+      if (!value) {
+        sessionStorage.removeItem(storageKey);
+        document.documentElement.dataset.nexusControlAuthorized = "false";
+        status.textContent = "Password cleared.";
+        return;
+      }
+      status.textContent = "Checking control password…";
+      try {
+        const response = await originalFetch("/api/control/auth", {
+          method: "POST",
+          headers: { "x-nexus-control-password": value },
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.ok) throw new Error(data.detail || "Control password was not accepted.");
+        sessionStorage.setItem(storageKey, value);
+        document.documentElement.dataset.nexusControlAuthorized = "true";
+        status.textContent = "Controls unlocked for this tab. Paper actions and runtime-safe settings are ready.";
+        window.dispatchEvent(new CustomEvent("nexus-control-authorized"));
+      } catch (error) {
+        sessionStorage.removeItem(storageKey);
+        document.documentElement.dataset.nexusControlAuthorized = "false";
+        status.textContent = error instanceof Error ? error.message : "Control password was not accepted.";
+      }
     };
     panel.querySelector("#nexus-control-auth-clear").onclick = () => {
       input.value = "";
       sessionStorage.removeItem(storageKey);
+      document.documentElement.dataset.nexusControlAuthorized = "false";
       status.textContent = "Password cleared.";
     };
   }
@@ -186,7 +208,6 @@
   `;
 
   function boot() {
-    try { localStorage.removeItem(storageKey); } catch {}
     document.head.appendChild(style);
     renderAuth();
     renderScorecard();

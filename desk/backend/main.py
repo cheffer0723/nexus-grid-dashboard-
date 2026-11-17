@@ -57,6 +57,13 @@ def _check_control_password(password: str | None) -> None:
         raise HTTPException(status_code=401, detail="Control password required")
 
 
+@app.post("/api/control/auth")
+def verify_control_password(x_nexus_control_password: str | None = Header(default=None)) -> dict[str, Any]:
+    """Validate a control password without changing the paper engine."""
+    _check_control_password(x_nexus_control_password)
+    return {"ok": True, "authorized": True, "at": utc_now()}
+
+
 def _analytics_store():
     store = get_engine().store
     if not store:
