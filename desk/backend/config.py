@@ -91,7 +91,7 @@ def load_settings() -> Settings:
         product_name=_env("NEXUS_PRODUCT_NAME", "Nexus Desk"),
         paper_only=True,
         trade_symbol=_env("NEXUS_TRADE_SYMBOL", "BTC/USD") or "BTC/USD",
-        loop_interval=max(15, _env_int("NEXUS_LOOP_INTERVAL", 120)),
+        loop_interval=max(15, _env_int("NEXUS_LOOP_INTERVAL", 60)),
         stop_loss_pct=_env_float("NEXUS_SCALP_SL_PCT", 0.0035),
         take_profit_pct=_env_float("NEXUS_SCALP_TP_PCT", 0.008),
         position_usd=_env_float("NEXUS_SCALP_POSITION_USD", 25.0),
