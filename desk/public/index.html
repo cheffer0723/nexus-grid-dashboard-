@@ -7,13 +7,14 @@
     <meta name="description" content="Nexus Agent System desk — Gateway, Core, Vault, Sentinel, Observer. Paper trading with zero exchange keys." />
     <link rel="icon" type="image/svg+xml" href="/brand/nexus-mark.svg" />
     <link rel="stylesheet" crossorigin href="/assets/index.css" />
+    <link rel="stylesheet" href="/assets/boot-guard.css?v=desk-boot-1" />
     <link rel="stylesheet" href="/assets/brand.css?v=nexus-brand-2" />
     <link rel="stylesheet" href="/assets/polish.css?v=desk-polish-9" />
     <link rel="stylesheet" href="/assets/coach.css?v=desk-coach-10" />
     <link rel="stylesheet" href="/assets/market-chart.css?v=desk-chart-1" />
     <link rel="stylesheet" href="/assets/jev-panel.css?v=desk-jev-2" />
     <link rel="stylesheet" href="/assets/layout-fix.css?v=desk-layout-2" />
-    <script type="module" crossorigin src="/assets/index-app.js?v=desk-chrome-6"></script>
+    <script type="module" crossorigin src="/assets/index-app.js?v=desk-chrome-7"></script>
     <script src="/control-auth.js?v=desk-auth-3"></script>
     <script src="/analytics.js?v=desk-analytics-2" defer></script>
     <script src="/paper-only-ui.js?v=desk-paper-only-1" defer></script>
@@ -23,5 +24,42 @@
   </head>
   <body>
     <div id="root"></div>
+    <section id="nexus-boot-guard" aria-live="polite" aria-label="Nexus Desk loading state">
+      <p class="nexus-boot-guard__eyebrow">NEXUS DESK</p>
+      <h1>Starting operator console</h1>
+      <p data-boot-message>Loading the Desk interface…</p>
+      <button type="button" data-boot-retry hidden>Reload Desk</button>
+    </section>
+    <script>
+      (() => {
+        const root = document.getElementById("root");
+        const guard = document.getElementById("nexus-boot-guard");
+        const message = guard?.querySelector("[data-boot-message]");
+        const retry = guard?.querySelector("[data-boot-retry]");
+        if (!root || !guard) return;
+
+        let mounted = false;
+        const markMounted = () => {
+          if (root.childElementCount === 0) return;
+          mounted = true;
+          guard.hidden = true;
+          observer.disconnect();
+        };
+        const fail = () => {
+          if (mounted || root.childElementCount > 0) return;
+          guard.classList.add("is-failed");
+          if (message) message.textContent = "The Desk interface did not start. Reload to fetch the current version.";
+          if (retry) retry.hidden = false;
+        };
+        const observer = new MutationObserver(markMounted);
+        observer.observe(root, { childList: true });
+        window.addEventListener("error", (event) => {
+          if (event.target?.tagName === "SCRIPT") fail();
+        }, true);
+        retry?.addEventListener("click", () => location.reload());
+        markMounted();
+        window.setTimeout(fail, 12000);
+      })();
+    </script>
   </body>
 </html>

@@ -1,0 +1,37 @@
+/* Minimal, independent fallback for a failed React boot. */
+#nexus-boot-guard {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 0.75rem;
+  padding: clamp(1.5rem, 7vw, 4rem);
+  background:
+    radial-gradient(circle at 20% 15%, rgba(59, 130, 246, 0.15), transparent 36%),
+    #05070d;
+  color: #eaf8ff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+#nexus-boot-guard[hidden] { display: none; }
+.nexus-boot-guard__eyebrow {
+  margin: 0;
+  color: #36e7ff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+#nexus-boot-guard h1 { margin: 0; font-size: clamp(1.4rem, 6vw, 2.25rem); }
+#nexus-boot-guard p { margin: 0; max-width: 34rem; color: rgba(234, 248, 255, 0.72); line-height: 1.55; }
+#nexus-boot-guard button {
+  margin-top: 0.5rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid rgba(54, 231, 255, 0.56);
+  border-radius: 0.6rem;
+  background: rgba(54, 231, 255, 0.1);
+  color: #eaf8ff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
